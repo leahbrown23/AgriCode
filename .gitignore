@@ -1,0 +1,19 @@
+# Ignore Python/Django files
+backend/venv/
+backend/__pycache__/
+backend/db.sqlite3
+backend/*.pyc
+backend/.env
+
+# Ignore Node.js/React files
+frontend/node_modules/
+frontend/build/
+frontend/.env
+
+# Ignore system files
+.DS_Store
+*.log
+
+venv
+
+node_modules
