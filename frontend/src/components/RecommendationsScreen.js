@@ -1,10 +1,10 @@
 "use client"
 
-import { ArrowLeft, Check } from "lucide-react"
+import { ArrowLeft, Check, Home, Menu, User } from "lucide-react"
 
-export default function RecommendationsScreen({ onBackClick }) {
+export default function RecommendationsScreen({ onBackClick, setCurrentScreen, currentScreen }) {
   return (
-    <div className="flex flex-col h-full pb-12">
+    <div className="flex flex-col h-full pb-12 relative">
       <div className="p-4 bg-white flex items-center">
         <button onClick={onBackClick} className="mr-2">
           <ArrowLeft className="h-5 w-5" />
@@ -49,9 +49,26 @@ export default function RecommendationsScreen({ onBackClick }) {
 
         {/* View Previous button */}
         <div className="mt-8">
-          <button className="w-full bg-[#2a9d4a] hover:bg-[#238a3e] text-white py-2 rounded">View Previous</button>
+          <button className="w-full bg-[#2a9d4a] hover:bg-[#238a3e] text-white py-2 rounded">
+            View Previous
+          </button>
         </div>
       </div>
+
+      {/* Bottom Navigation - Only show on main screens */}
+      {["dashboard", "soilHealth", "insights", "recommendations", "userProfile"].includes(currentScreen) && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
+          <button onClick={() => setCurrentScreen("dashboard")} className="flex flex-col items-center justify-center w-1/3">
+            <Home size={20} />
+          </button>
+          <button onClick={() => setCurrentScreen("userProfile")} className="flex flex-col items-center justify-center w-1/3">
+            <User size={20} />
+          </button>
+          <button className="flex flex-col items-center justify-center w-1/3">
+            <Menu size={20} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
