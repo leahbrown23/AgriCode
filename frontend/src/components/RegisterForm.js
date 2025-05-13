@@ -1,8 +1,8 @@
 "use client"
 
-export default function RegisterForm({ onRegisterClick }) {
+export default function RegisterForm({ onRegisterClick, onBackClick }) {
   return (
-    <div className="flex flex-col h-full bg-[#b9d98a] p-6">
+    <div className="flex flex-col h-full bg-[#d1e6b2] p-6">
       <h2 className="text-right text-[#2a9d4a] font-medium mb-4">Create an account</h2>
       <div className="w-full space-y-3">
         <input type="text" placeholder="First Name" className="w-full bg-white border border-gray-300 p-2 rounded" />
@@ -16,6 +16,9 @@ export default function RegisterForm({ onRegisterClick }) {
         >
           Register
         </button>
+        <button onClick={onBackClick} className="text-sm text-gray-700 hover:underline">
+            Back
+          </button>
       </div>
     </div>
   )

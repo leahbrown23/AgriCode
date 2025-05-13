@@ -12,7 +12,7 @@ export default function DiscussionForumScreen({ onBackClick }) {
         <h1 className="text-lg font-semibold flex-1 text-center">Discussion Forum</h1>
       </div>
 
-      <div className="flex-1 p-4 bg-[#b9d98a]">
+      <div className="flex-1 p-4 bg-[#d1e6b2]">
         {/* Chats header with filter */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium">Chats</h2>

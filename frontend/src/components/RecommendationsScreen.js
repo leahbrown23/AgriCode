@@ -12,7 +12,7 @@ export default function RecommendationsScreen({ onBackClick }) {
         <h1 className="text-lg font-semibold flex-1 text-center">Recommendations</h1>
       </div>
 
-      <div className="flex-1 p-4 bg-[#b9d98a]">
+      <div className="flex-1 p-4 bg-[#d1e6b2]">
         {/* Alerts speech bubble */}
         <div className="flex justify-center mb-4">
           <div className="bg-white rounded-full py-3 px-10 relative">

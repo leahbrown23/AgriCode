@@ -27,7 +27,12 @@ function App() {
           />
         )
       case "register":
-        return <RegisterForm onRegisterClick={() => setCurrentScreen("dashboard")} />
+        return(
+          <RegisterForm 
+            onRegisterClick={() => setCurrentScreen("dashboard")}
+            onBackClick={() => setCurrentScreen("loginForm")}
+          />
+        )
       case "dashboard":
         return (
           <DashboardScreen

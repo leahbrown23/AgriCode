@@ -2,7 +2,7 @@
 
 export default function LoginForm({ onLoginClick, onSignUpClick }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-[#b9d98a] p-6">
+    <div className="flex flex-col items-center justify-center h-full bg-[#d1e6b2] p-6">
       <div className="w-full space-y-4">
         <input type="text" placeholder="Username" className="w-full bg-white border border-gray-300 p-2 rounded" />
         <input type="password" placeholder="Password" className="w-full bg-white border border-gray-300 p-2 rounded" />

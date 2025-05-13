@@ -11,8 +11,8 @@ export default function InsightsScreen({ onBackClick }) {
         <h1 className="text-lg font-semibold flex-1 text-center">Insights</h1>
       </div>
 
-      <div className="flex-1 p-4">
-        <div className="border rounded shadow mb-4 p-2">
+      <div className="flex-1 p-4 bg-[#d1e6b2]">
+        <div className="border rounded shadow mb-4 p-2 bg-white">
           <div className="bg-[#f9f3e3] rounded p-2 h-24 flex items-center justify-center">
             <div
               className="w-full h-16 bg-contain bg-no-repeat bg-center"
@@ -22,22 +22,26 @@ export default function InsightsScreen({ onBackClick }) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
+          bg-white">
             <Droplets className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">Water</span>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
+          bg-white">
             <Leaf className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">Planting</span>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
+          bg-white">
             <FlaskConical className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">Fertilizer</span>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
+          bg-white">
             <Info className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">General</span>
           </div>
