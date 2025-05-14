@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 
 export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
   const [user, setUser] = useState(null)
+  const [farmExists, setFarmExists] = useState(false)
   const [farmName, setFarmName] = useState("")
   const [location, setLocation] = useState("")
   const [cropTypes, setCropTypes] = useState("")
@@ -13,18 +14,14 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
-  // Fetch user profile + farm
   useEffect(() => {
     const fetchProfileAndFarm = async () => {
       if (!token) return
 
       // Fetch user profile
       const profileRes = await fetch("http://localhost:8000/api/profile/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       })
-
       if (profileRes.ok) {
         const userData = await profileRes.json()
         setUser(userData)
@@ -32,32 +29,27 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
 
       // Fetch farm info
       const farmRes = await fetch("http://localhost:8000/api/farm/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       })
 
       if (farmRes.ok) {
         const farmData = await farmRes.json()
+        setFarmExists(true)
         setFarmName(farmData.farm_name || "")
         setLocation(farmData.location || "")
         setCropTypes(farmData.crop_types || "")
         setSize(farmData.size || "")
         setHasLivestock(farmData.has_livestock ? "yes" : "no")
+      } else {
+        setFarmExists(false)
       }
     }
 
     fetchProfileAndFarm()
   }, [token])
 
-  // Save farm data to Django
-  const handleFarmRegister = async () => {
-    if (!token) {
-      alert("User not logged in")
-      return
-    }
-
-    const response = await fetch("http://localhost:8000/api/farm/", {
+  const handleAddFarm = async () => {
+    const res = await fetch("http://localhost:8000/api/farm/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -72,12 +64,38 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
       }),
     })
 
-    if (response.ok) {
-      alert("Farm saved successfully!")
+    if (res.ok) {
+      alert("Farm added successfully!")
+      setFarmExists(true)
       onRegisterClick()
     } else {
-      const err = await response.json()
-      alert("Failed to save farm: " + JSON.stringify(err))
+      const err = await res.json()
+      alert("Error adding farm: " + JSON.stringify(err))
+    }
+  }
+
+  const handleUpdateFarm = async () => {
+    const res = await fetch("http://localhost:8000/api/farm/", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        farm_name: farmName,
+        location,
+        crop_types: cropTypes,
+        size: parseFloat(size),
+        has_livestock: hasLivestock === "yes",
+      }),
+    })
+
+    if (res.ok) {
+      alert("Farm updated successfully!")
+      onRegisterClick()
+    } else {
+      const err = await res.json()
+      alert("Error updating farm: " + JSON.stringify(err))
     }
   }
 
@@ -133,12 +151,24 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
             <option value="yes">Yes I have livestock</option>
             <option value="no">No I do not have livestock</option>
           </select>
-          <button
-            onClick={handleFarmRegister}
-            className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2"
-          >
-            Register
-          </button>
+
+          {/* ✅ Show Add or Update Button */}
+          {!farmExists ? (
+            <button
+              onClick={handleAddFarm}
+              className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2"
+            >
+              Add Farm
+            </button>
+          ) : (
+            <button
+              onClick={handleUpdateFarm}
+              className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2"
+            >
+              Update Farm
+            </button>
+          )}
+
           <button onClick={onBackClick} className="text-sm text-gray-700 hover:underline">
             Back
           </button>
