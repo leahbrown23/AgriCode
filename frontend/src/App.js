@@ -1,7 +1,7 @@
 "use client"
 
-import { Home, Menu, User, ChevronDown, ChevronRight, LogOut } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { ChevronDown, ChevronRight, Home, LogOut, Menu, User } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import "./App.css"
 import DashboardScreen from "./components/DashboardScreen"
 import DiscussionForumScreen from "./components/DiscussionForumScreen"
@@ -12,7 +12,6 @@ import RecommendationsScreen from "./components/RecommendationsScreen"
 import RegisterForm from "./components/RegisterForm"
 import SoilHealthScreen from "./components/SoilHealthScreen"
 import UserProfileScreen from "./components/UserProfileScreen"
-import FarmSetupScreen from "./components/FarmSetupScreen"
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("login")
@@ -93,18 +92,8 @@ function App() {
       case "userProfile":
         return (
           <UserProfileScreen
-            onSaveClick={() => alert("Changes saved!")}
-            onFarmSetupClick={() => setCurrentScreen("farmSetup")}
-          />
-        )
-      case "farmSetup":
-        return (
-          <FarmSetupScreen
-            onBackClick={() => setCurrentScreen("userProfile")}
-            onRegisterClick={() => {
-              alert("Farm details registered!")
-              setCurrentScreen("userProfile")
-            }}
+            onBackClick={() => setCurrentScreen("dashboard")}
+            onRegisterClick={() => {alert("Farm details registered!")}}
           />
         )
       default:
