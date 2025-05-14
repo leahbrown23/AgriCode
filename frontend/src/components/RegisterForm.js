@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react";
-import supabase from "../supabaseClient.js"; // Adjust the path based on your project structure
+import { useState } from "react"
 
 export default function RegisterForm({ onRegisterClick, onBackClick }) {
   const [firstName, setFirstName] = useState("")
@@ -11,37 +10,28 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
   const [farmName, setFarmName] = useState("")
 
   const handleRegister = async () => {
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
+    const res = await fetch("http://localhost:8000/api/register/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: email,              // or generate from names
+        email: email,
+        password: password,
+        first_name: firstName,
+        last_name: lastName,
+        farm_name: farmName
+      })
     })
 
-    if (signUpError) {
-      alert("Error signing up: " + signUpError.message)
-      return
-    }
+    const data = await res.json()
 
-    const userId = data.user?.id
-    if (!userId) {
-      alert("Signup succeeded but no user ID returned.")
-      return
-    }
-
-    const { error: insertError } = await supabase
-      .from("users")
-      .insert({
-        user_id: userId,
-        email: email,
-        first_name: firstName,
-        surname: lastName,
-        farm_name: farmName,
-      })
-
-    if (insertError) {
-      alert("User registered, but failed to save profile: " + insertError.message)
-    } else {
+    if (res.ok) {
       alert("User registered successfully!")
-      onRegisterClick()  // navigate to next screen if you want
+      onRegisterClick()  // move to login or next step
+    } else {
+      alert("Registration failed: " + JSON.stringify(data))
     }
   }
 

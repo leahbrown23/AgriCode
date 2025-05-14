@@ -2,7 +2,6 @@
 
 import { ArrowLeft } from "lucide-react"
 import { useEffect, useState } from "react"
-import supabase from "../supabaseClient"
 
 export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
   const [user, setUser] = useState(null)
@@ -12,41 +11,73 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
   const [size, setSize] = useState("")
   const [hasLivestock, setHasLivestock] = useState("")
 
-  // Fetch the logged-in user
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
+
+  // Fetch user profile + farm
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data, error } = await supabase.auth.getUser()
-      if (error) {
-        console.error("Failed to fetch user", error)
-      } else {
-        setUser(data.user)
+    const fetchProfileAndFarm = async () => {
+      if (!token) return
+
+      // Fetch user profile
+      const profileRes = await fetch("http://localhost:8000/api/profile/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (profileRes.ok) {
+        const userData = await profileRes.json()
+        setUser(userData)
+      }
+
+      // Fetch farm info
+      const farmRes = await fetch("http://localhost:8000/api/farm/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (farmRes.ok) {
+        const farmData = await farmRes.json()
+        setFarmName(farmData.farm_name || "")
+        setLocation(farmData.location || "")
+        setCropTypes(farmData.crop_types || "")
+        setSize(farmData.size || "")
+        setHasLivestock(farmData.has_livestock ? "yes" : "no")
       }
     }
 
-    fetchUser()
-  }, [])
+    fetchProfileAndFarm()
+  }, [token])
 
+  // Save farm data to Django
   const handleFarmRegister = async () => {
-    if (!user) {
+    if (!token) {
       alert("User not logged in")
       return
     }
 
-    const { error } = await supabase.from("farms").insert({
-      user_id: user.id,
-      farm_name: farmName,
-      location: location,
-      crop_types: cropTypes,
-      size: parseFloat(size),
-      has_livestock: hasLivestock === "yes",
+    const response = await fetch("http://localhost:8000/api/farm/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        farm_name: farmName,
+        location,
+        crop_types: cropTypes,
+        size: parseFloat(size),
+        has_livestock: hasLivestock === "yes",
+      }),
     })
 
-    if (error) {
-      console.error("Failed to save farm", error)
-      alert("Error saving farm data")
+    if (response.ok) {
+      alert("Farm saved successfully!")
+      onRegisterClick()
     } else {
-      alert("Farm registered successfully!")
-      onRegisterClick()  // navigate to next screen
+      const err = await response.json()
+      alert("Failed to save farm: " + JSON.stringify(err))
     }
   }
 
@@ -56,7 +87,7 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
         <button onClick={onBackClick} className="mr-2">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-lg font-semibold flex-1 text-center">Profile</h1>
+        <h1 className="text-lg font-semibold flex-1 text-center">Farm Setup</h1>
       </div>
       <div className="flex flex-col h-full bg-[#d1e6b2] p-6">
         {user && (
@@ -64,7 +95,6 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
             Logged in as: <strong>{user.email}</strong>
           </div>
         )}
-
         <div className="w-full space-y-3">
           <input
             type="text"
@@ -99,13 +129,10 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
             onChange={(e) => setHasLivestock(e.target.value)}
             className="w-full bg-white border border-gray-300 p-2 rounded appearance-none"
           >
-            <option value="" disabled>
-              Livestock
-            </option>
+            <option value="" disabled>Livestock</option>
             <option value="yes">Yes I have livestock</option>
             <option value="no">No I do not have livestock</option>
           </select>
-
           <button
             onClick={handleFarmRegister}
             className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2"

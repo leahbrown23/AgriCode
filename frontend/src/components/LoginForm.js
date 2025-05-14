@@ -1,28 +1,33 @@
 "use client"
 
-import { useState } from "react";
-import supabase from "../supabaseClient"; // Adjust path as needed
+import { useState } from "react"
 
 export default function LoginForm({ onLoginClick, onSignUpClick }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
   const handleLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await fetch("http://localhost:8000/api/login/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: email,  // ✅ Django expects "username" even if you're using email
+        password: password
+      })
     })
 
-    if (error) {
-      alert("Login failed: " + error.message)
-      return
-    }
+    const data = await res.json()
 
-    alert("Login successful!")
+    if (res.ok) {
+      localStorage.setItem("accessToken", data.access)
+      localStorage.setItem("refreshToken", data.refresh)
+      alert("Login successful!")
 
-    // Optional: Trigger navigation or context update
-    if (onLoginClick) {
-      onLoginClick()
+      if (onLoginClick) onLoginClick()
+    } else {
+      alert("Login failed: " + (data.detail || JSON.stringify(data)))
     }
   }
 
