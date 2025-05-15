@@ -1,5 +1,6 @@
 "use client"
 
+import axios from "axios"
 import { ChevronDown, ChevronRight, Home, LogOut, Menu, User } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import "./App.css"
@@ -11,7 +12,9 @@ import LoginScreen from "./components/LoginScreen"
 import RecommendationsScreen from "./components/RecommendationsScreen"
 import RegisterForm from "./components/RegisterForm"
 import SoilHealthScreen from "./components/SoilHealthScreen"
+import ThreadViewScreen from "./components/ThreadViewScreen"
 import UserProfileScreen from "./components/UserProfileScreen"
+
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("login")
@@ -20,9 +23,17 @@ function App() {
   const [isUserProfileExpanded, setIsUserProfileExpanded] = useState(false)
   const menuRef = useRef(null)
   const menuButtonRef = useRef(null)
+  const [selectedThreadId, setSelectedThreadId] = useState(null)
 
-  // Close menu when clicking outside
+
   useEffect(() => {
+    const token = localStorage.getItem("accessToken")
+    if (token) {
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
+    }
+  }, [])
+
+    useEffect(() => {
     function handleClickOutside(event) {
       if (
         isMenuOpen &&
@@ -81,6 +92,13 @@ function App() {
             onDiscussionForumClick={() => setCurrentScreen("discussionForum")}
           />
         )
+      case "threadView":
+      return (
+        <ThreadViewScreen
+          threadId={selectedThreadId}
+          onBackClick={() => setCurrentScreen("discussionForum")}
+        />
+      )
       case "soilHealth":
         return <SoilHealthScreen onBackClick={() => setCurrentScreen("dashboard")} />
       case "insights":
@@ -88,7 +106,15 @@ function App() {
       case "recommendations":
         return <RecommendationsScreen onBackClick={() => setCurrentScreen("dashboard")} />
       case "discussionForum":
-        return <DiscussionForumScreen onBackClick={() => setCurrentScreen("dashboard")} />
+      return (
+        <DiscussionForumScreen
+          onBackClick={() => setCurrentScreen("dashboard")}
+          onThreadClick={(threadId) => {
+            setSelectedThreadId(threadId)
+            setCurrentScreen("threadView")
+          }}
+        />
+      )
       case "userProfile":
         return (
           <UserProfileScreen
@@ -253,5 +279,7 @@ function App() {
     </div>
   )
 }
+
+
 
 export default App

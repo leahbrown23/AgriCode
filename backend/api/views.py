@@ -12,10 +12,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Farm
 from .serializers import FarmSerializer
+from rest_framework.permissions import AllowAny
 
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = RegisterSerializer
+    permission_classes = [AllowAny] 
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]

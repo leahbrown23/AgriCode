@@ -10,13 +10,15 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
   const [farmName, setFarmName] = useState("")
 
   const handleRegister = async () => {
+  try {
+    // Step 1: Register the user
     const res = await fetch("http://localhost:8000/api/register/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        username: email,              // or generate from names
+        username: email, // username will be email
         email: email,
         password: password,
         first_name: firstName,
@@ -27,13 +29,43 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
 
     const data = await res.json()
 
-    if (res.ok) {
-      alert("User registered successfully!")
-      onRegisterClick()  // move to login or next step
-    } else {
-      alert("Registration failed: " + JSON.stringify(data))
+    if (!res.ok) {
+      throw new Error(data.detail || "Registration failed")
     }
+
+    // Step 2: Log the user in right after registration
+    const loginRes = await fetch("http://localhost:8000/api/login/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: email, // login with same email
+        password: password
+      })
+    })
+
+    const loginData = await loginRes.json()
+
+    if (!loginRes.ok) {
+      throw new Error(loginData.detail || "Login failed after registration")
+    }
+
+    // Step 3: Store the tokens
+    localStorage.setItem("accessToken", loginData.access)
+    localStorage.setItem("refreshToken", loginData.refresh)
+
+    alert("Registration successful and user logged in!")
+
+    // Step 4: Redirect
+    onRegisterClick() // Go to dashboard or wherever needed
+
+  } catch (err) {
+    console.error("Registration/Login error:", err)
+    alert("Error: " + err.message)
   }
+}
+
 
   return (
     <div className="flex flex-col h-full bg-[#d1e6b2] p-6">
