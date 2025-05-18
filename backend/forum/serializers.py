@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Topic, Thread, ChatMessage
+from .models import Topic, Thread,ChatMessage
 
 class TopicSerializer(serializers.ModelSerializer):
     class Meta:
@@ -8,13 +8,18 @@ class TopicSerializer(serializers.ModelSerializer):
 
 class ThreadSerializer(serializers.ModelSerializer):
     message_count = serializers.SerializerMethodField()
+    username = serializers.CharField(source='user.username', read_only=True)
 
     class Meta:
         model = Thread
-        fields = ['id', 'title', 'topic', 'created_at', 'views', 'message_count']
+        fields = ['id', 'title', 'topic', 'created_at', 'views', 'message_count', 'username']
+        read_only_fields = ['id', 'created_at', 'views', 'message_count', 'username']
 
     def get_message_count(self, obj):
         return obj.messages.count()
+
+    def create(self, validated_data):
+        return Thread.objects.create(**validated_data)
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()  # returns username
@@ -22,3 +27,5 @@ class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatMessage
         fields = ['id', 'thread', 'user', 'content', 'created_at']
+
+

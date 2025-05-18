@@ -2,12 +2,16 @@ import axios from "axios"
 import { ArrowLeft, Filter } from "lucide-react"
 import { useEffect, useState } from "react"
 
-export default function DiscussionForumScreen({ onBackClick, onThreadClick}) {
+export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [topics, setTopics] = useState([])
   const [threadsByTopic, setThreadsByTopic] = useState({})
   const [activeFilter, setActiveFilter] = useState("all")
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const token = localStorage.getItem("accessToken")
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [newThreadTitle, setNewThreadTitle] = useState("")
+  const [newThreadMessage, setNewThreadMessage] = useState("")
+  const [newThreadTopic, setNewThreadTopic] = useState("")
 
   const filterOptions = [
     { id: "all", label: "All Threads" },
@@ -17,44 +21,75 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick}) {
   ]
 
   useEffect(() => {
-    axios.get("/forum/topics/", {
-  headers: {
-    Authorization: `Bearer ${token}`
-  }
-})
-      .then(res => {
+    axios
+      .get("/forum/topics/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((res) => {
         setTopics(res.data)
-        res.data.forEach(topic => {
+        res.data.forEach((topic) => {
           fetchThreadsForTopic(topic.id, activeFilter)
         })
       })
-      .catch(err => console.error("Failed to fetch topics:", err))
+      .catch((err) => console.error("Failed to fetch topics:", err))
   }, [])
 
   useEffect(() => {
-    topics.forEach(topic => fetchThreadsForTopic(topic.id, activeFilter))
+    topics.forEach((topic) => fetchThreadsForTopic(topic.id, activeFilter))
   }, [activeFilter])
 
-const fetchThreadsForTopic = async (topicId, sort = "all") => {
-  const token = localStorage.getItem("accessToken") // ✅ Your JWT token
-  let url = `/forum/threads/?topic=${topicId}`
-  if (sort !== "all") url += `&sort=${sort}`
+  const fetchThreadsForTopic = async (topicId, sort = "all") => {
+    const token = localStorage.getItem("accessToken") // ✅ Your JWT token
+    let url = `/forum/threads/?topic=${topicId}`
+    if (sort !== "all") url += `&sort=${sort}`
 
-  try {
-    const res = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${token}` // ✅ Correct header for JWT
-      }
-    })
-    setThreadsByTopic(prev => ({ ...prev, [topicId]: res.data }))
-  } catch (err) {
-    console.error(`Failed to fetch threads for topic ${topicId}:`, err)
+    try {
+      const res = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`, // ✅ Correct header for JWT
+        },
+      })
+      setThreadsByTopic((prev) => ({ ...prev, [topicId]: res.data }))
+    } catch (err) {
+      console.error(`Failed to fetch threads for topic ${topicId}:`, err)
+    }
   }
-}
 
   const handleThreadClick = (topicId, threadId) => {
-  onThreadClick(threadId)
-}
+    onThreadClick(threadId)
+  }
+
+  const handleCreateThread = async () => {
+    const token = localStorage.getItem("accessToken")
+    if (!token) return alert("You must be logged in to create a thread.")
+
+    try {
+      const res = await axios.post(
+        "/forum/threads/",
+        {
+          topic: newThreadTopic,
+          title: newThreadTitle,
+          message: newThreadMessage,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      alert("Thread created successfully!")
+      setShowCreateForm(false)
+      setNewThreadTitle("")
+      setNewThreadMessage("")
+      setNewThreadTopic("")
+      fetchThreadsForTopic(newThreadTopic, activeFilter) // refresh
+    } catch (err) {
+      console.error("Error creating thread:", err)
+      alert("Failed to create thread.")
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -85,7 +120,9 @@ const fetchThreadsForTopic = async (topicId, sort = "all") => {
                     {filterOptions.map((option) => (
                       <button
                         key={option.id}
-                        className={`block px-4 py-2 text-sm w-full text-left ${activeFilter === option.id ? "bg-gray-100" : ""}`}
+                        className={`block px-4 py-2 text-sm w-full text-left ${
+                          activeFilter === option.id ? "bg-gray-100" : ""
+                        }`}
                         onClick={() => {
                           setActiveFilter(option.id)
                           setShowFilterMenu(false)
@@ -100,6 +137,57 @@ const fetchThreadsForTopic = async (topicId, sort = "all") => {
             </div>
           </div>
 
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded mt-3 hover:bg-green-700"
+          >
+            + Create New Thread
+          </button>
+          {showCreateForm && (
+            <div className="bg-white p-4 mt-4 rounded shadow">
+              <h3 className="text-md font-semibold mb-2">Start a New Thread</h3>
+              <select
+                className="w-full p-2 border rounded mb-2"
+                value={newThreadTopic}
+                onChange={(e) => setNewThreadTopic(e.target.value)}
+              >
+                <option value="">Select Topic</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.title}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                placeholder="Thread title"
+                className="w-full p-2 border rounded mb-2"
+                value={newThreadTitle}
+                onChange={(e) => setNewThreadTitle(e.target.value)}
+              />
+              <textarea
+                placeholder="Description or message..."
+                className="w-full p-2 border rounded mb-2"
+                value={newThreadMessage}
+                onChange={(e) => setNewThreadMessage(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreateThread}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Submit
+                </button>
+                <button
+                  onClick={() => setShowCreateForm(false)}
+                  className="text-sm text-gray-600 underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Topics Grid */}
           <div className="grid grid-cols-1 gap-4">
             {topics.map((topic, index) => (
@@ -112,28 +200,38 @@ const fetchThreadsForTopic = async (topicId, sort = "all") => {
                   <h3 className="text-lg">Topic: {topic.title}</h3>
                 </div>
                 <div className="bg-white p-2 space-y-2">
-                  {(threadsByTopic[topic.id] || []).slice(0, 3).map((thread) => (
-                    <div
-                      key={thread.id}
-                      className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
-                      onClick={() => handleThreadClick(topic.id, thread.id)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
-                          {thread.title.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between">
-                            <span className="font-semibold">{thread.title}</span>
-                            <span className="text-xs text-gray-500">{thread.message_count} replies</span>
+                  {(threadsByTopic[topic.id] || [])
+                    .slice(0, 3)
+                    .map((thread) => (
+                      <div
+                        key={thread.id}
+                        className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                        onClick={() => handleThreadClick(topic.id, thread.id)}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
+                            {thread.title.charAt(0).toUpperCase()}
                           </div>
-                          <span className="text-xs px-2 py-1 bg-gray-200 rounded-full">
-                            {activeFilter}
-                          </span>
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <span className="font-semibold">{thread.title}</span>
+                              <span className="text-xs text-gray-500">
+                                {activeFilter === "trending"
+                                  ? `${thread.views} views`
+                                  : `${thread.message_count} replies`}
+                              </span>
+                            </div>
+                            <span className="text-xs px-2 py-1 bg-gray-200 rounded-full capitalize">
+                              {activeFilter === "trending"
+                                ? "Views"
+                                : activeFilter === "popular"
+                                ? "Replies"
+                                : "Replies"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                   {(threadsByTopic[topic.id] || []).length === 0 && (
                     <div className="text-center py-4 text-gray-500">No threads found</div>
                   )}
