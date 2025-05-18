@@ -41,14 +41,14 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   }, [activeFilter])
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
-    const token = localStorage.getItem("accessToken") // ✅ Your JWT token
+    const token = localStorage.getItem("accessToken")
     let url = `/forum/threads/?topic=${topicId}`
     if (sort !== "all") url += `&sort=${sort}`
 
     try {
       const res = await axios.get(url, {
         headers: {
-          Authorization: `Bearer ${token}`, // ✅ Correct header for JWT
+          Authorization: `Bearer ${token}`,
         },
       })
       setThreadsByTopic((prev) => ({ ...prev, [topicId]: res.data }))
@@ -84,7 +84,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
       setNewThreadTitle("")
       setNewThreadMessage("")
       setNewThreadTopic("")
-      fetchThreadsForTopic(newThreadTopic, activeFilter) // refresh
+      fetchThreadsForTopic(newThreadTopic, activeFilter)
     } catch (err) {
       console.error("Error creating thread:", err)
       alert("Failed to create thread.")

@@ -11,7 +11,6 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
 
   const handleRegister = async () => {
   try {
-    // Step 1: Register the user
     const res = await fetch("http://localhost:8000/api/register/", {
       method: "POST",
       headers: {
@@ -33,14 +32,13 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
       throw new Error(data.detail || "Registration failed")
     }
 
-    // Step 2: Log the user in right after registration
     const loginRes = await fetch("http://localhost:8000/api/login/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        username: email, // login with same email
+        username: email,
         password: password
       })
     })
@@ -51,14 +49,12 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
       throw new Error(loginData.detail || "Login failed after registration")
     }
 
-    // Step 3: Store the tokens
     localStorage.setItem("accessToken", loginData.access)
     localStorage.setItem("refreshToken", loginData.refresh)
 
     alert("Registration successful and user logged in!")
 
-    // Step 4: Redirect
-    onRegisterClick() // Go to dashboard or wherever needed
+    onRegisterClick() // Go to dashboard
 
   } catch (err) {
     console.error("Registration/Login error:", err)

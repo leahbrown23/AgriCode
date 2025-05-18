@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 
-
 export default function LoginForm({ onLoginClick, onSignUpClick }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -14,7 +13,7 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        username: email,  // ✅ Django expects "username" even if you're using email
+        username: email,
         password: password
       })
     })

@@ -152,7 +152,7 @@ export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
             <option value="no">No I do not have livestock</option>
           </select>
 
-          {/* ✅ Show Add or Update Button */}
+          {/* Show Add or Update Button */}
           {!farmExists ? (
             <button
               onClick={handleAddFarm}
