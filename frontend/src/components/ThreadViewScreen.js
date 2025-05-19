@@ -9,7 +9,6 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Replace this with your real token if needed
   const token = localStorage.getItem("accessToken")
 
   useEffect(() => {
