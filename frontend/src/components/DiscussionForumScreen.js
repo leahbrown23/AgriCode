@@ -41,8 +41,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   }, [activeFilter])
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
-    const token = localStorage.getItem("accessToken") // ✅ Your JWT token
-    let url = `/forum/threads/?topic=${topicId}`
+    const token = localStorage.getItem("accessToken") // JWT token
+    let url = `http://localhost:8000/forum/threads/?topic=${topicId}`
     if (sort !== "all") url += `&sort=${sort}`
 
     try {

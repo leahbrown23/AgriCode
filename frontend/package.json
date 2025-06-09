@@ -4,7 +4,7 @@
   "private": true,
   "options": {
     "allowedHosts": ["all"],
-    "proxy": "https://localhost:8000/"
+    "proxy": "http://localhost:8000/"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
