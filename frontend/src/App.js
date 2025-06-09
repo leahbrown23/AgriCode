@@ -233,17 +233,9 @@ function App() {
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("farmSetup")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
                       Farm Setup
                     </button>
+                    
                   </div>
                 )}
               </div>
@@ -252,8 +244,7 @@ function App() {
         )}
 
         {/* Navbar */}
-        {showNavbar && (
-          <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
+        <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
             <button
               onClick={() => setCurrentScreen("dashboard")}
               className="flex flex-col items-center justify-center w-1/3"
@@ -261,7 +252,7 @@ function App() {
               <Home size={20} />
             </button>
             <button
-              onClick={() => setCurrentScreen("userProfile")}
+              onClick={() => setCurrentScreen("farmSetup")}
               className="flex flex-col items-center justify-center w-1/3"
             >
               <User size={20} />
