@@ -21,7 +21,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   if (!token) return console.error("No access token found")
 
   try {
-    const res = await axios.get(`/forum/threads/${threadId}/`, {
+    const res = await axios.get(`http://localhost:8000/forum/threads/${threadId}/`, {
       headers: {
         Authorization: `Bearer ${token}`,
       }
@@ -37,7 +37,7 @@ const fetchMessages = async () => {
   if (!token) return console.error("No access token found")
 
   try {
-    const res = await axios.get(`/forum/chats/?thread=${threadId}`, {
+    const res = await axios.get(`http://localhost:8000/forum/chats/?thread=${threadId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       }
@@ -54,7 +54,7 @@ const fetchMessages = async () => {
     setError(null)
 
     try {
-await axios.post("/forum/chats/", {
+await axios.post("http://localhost:8000/forum/chats/", {
   thread: threadId,
   content: newMessage
 }, {

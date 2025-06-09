@@ -22,7 +22,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
 
   useEffect(() => {
     axios
-      .get("/forum/topics/", {
+      .get("http://localhost:8000/forum/topics/", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -42,7 +42,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
     const token = localStorage.getItem("accessToken")
-    let url = `/forum/threads/?topic=${topicId}`
+    let url = `http://localhost:8000/forum/threads/?topic=${topicId}`
     if (sort !== "all") url += `&sort=${sort}`
 
     try {
@@ -67,7 +67,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
 
     try {
       const res = await axios.post(
-        "/forum/threads/",
+        "http://localhost:8000/forum/threads/",
         {
           topic: newThreadTopic,
           title: newThreadTitle,
