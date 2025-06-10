@@ -32,23 +32,25 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
 
       const data = await res.json()
 
-      if (res.ok) {
-        // Store tokens in memory instead of localStorage for this environment
-        // In production, you can use localStorage
-        
-        setMessage("Login successful! Redirecting to dashboard...")
-        setIsError(false)
-        setMessageBoxVisible(true)
+     if (res.ok) {
+  // Store tokens in localStorage
+  localStorage.setItem("accessToken", data.access)
+  localStorage.setItem("refreshToken", data.refresh)
 
-        // Simulate redirect delay
-        setTimeout(() => {
-          if (onLoginClick) onLoginClick()
-        }, 2000)
-      } else {
-        setMessage("Login failed: " + (data.detail || "Invalid email or password. Please try again."))
-        setIsError(true)
-        setMessageBoxVisible(true)
-      }
+  // Use messageBox for feedback
+  setMessage("Login successful! Redirecting to dashboard...")
+  setIsError(false)
+  setMessageBoxVisible(true)
+
+  // Simulate redirect delay
+  setTimeout(() => {
+    if (onLoginClick) onLoginClick()
+  }, 2000)
+} else {
+  setMessage("Login failed: " + (data.detail || "Invalid email or password. Please try again."))
+  setIsError(true)
+  setMessageBoxVisible(true)
+}
     } catch (error) {
       setMessage("Connection error: Unable to connect to server. Please check your internet connection.")
       setIsError(true)

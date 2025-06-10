@@ -265,7 +265,7 @@ function App() {
               <Menu size={20} />
             </button>
           </div>
-        )}
+        )
       </div>
     </div>
   )
