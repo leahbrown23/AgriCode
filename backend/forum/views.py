@@ -4,7 +4,12 @@ from .models import Topic, Thread, ChatMessage
 from .serializers import TopicSerializer, ThreadSerializer, ChatMessageSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.pagination import LimitOffsetPagination
 
+
+class ChatPagination(LimitOffsetPagination):
+    default_limit = 10
+    max_limit = 50
 
 class TopicViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Topic.objects.all()
@@ -52,6 +57,7 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
     queryset = ChatMessage.objects.all()
     serializer_class = ChatMessageSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = ChatPagination
 
     def get_queryset(self):
         thread_id = self.request.query_params.get('thread')

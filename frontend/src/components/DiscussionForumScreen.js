@@ -27,12 +27,17 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
           Authorization: `Bearer ${token}`,
         },
       })
-      .then((res) => {
-        setTopics(res.data)
-        res.data.forEach((topic) => {
-          fetchThreadsForTopic(topic.id, activeFilter)
-        })
+    .then((res) => {
+      const data = Array.isArray(res.data) ? res.data : []
+      setTopics(data)
+      const topicData = Array.isArray(res.data.results) ? res.data.results : []
+      setTopics(topicData)
+
+      topicData.forEach((topic) => {
+        fetchThreadsForTopic(topic.id, activeFilter)
       })
+
+    })
       .catch((err) => console.error("Failed to fetch topics:", err))
   }, [])
 
@@ -51,7 +56,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
           Authorization: `Bearer ${token}`,
         },
       })
-      setThreadsByTopic((prev) => ({ ...prev, [topicId]: res.data }))
+      const threadList = Array.isArray(res.data.results) ? res.data.results : []
+      setThreadsByTopic((prev) => ({ ...prev, [topicId]: threadList }))
     } catch (err) {
       console.error(`Failed to fetch threads for topic ${topicId}:`, err)
     }
