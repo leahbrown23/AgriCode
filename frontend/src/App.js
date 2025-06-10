@@ -14,7 +14,7 @@ import RegisterForm from "./components/RegisterForm"
 import SoilHealthScreen from "./components/SoilHealthScreen"
 import ThreadViewScreen from "./components/ThreadViewScreen"
 import UserProfileScreen from "./components/UserProfileScreen"
-
+import FarmSetupScreen from "./components/FarmSetupScreen" // ✅ ADD THIS LINE
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("login")
@@ -25,7 +25,6 @@ function App() {
   const menuButtonRef = useRef(null)
   const [selectedThreadId, setSelectedThreadId] = useState(null)
 
-
   useEffect(() => {
     const token = localStorage.getItem("accessToken")
     if (token) {
@@ -33,7 +32,7 @@ function App() {
     }
   }, [])
 
-    useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(event) {
       if (
         isMenuOpen &&
@@ -52,9 +51,8 @@ function App() {
     }
   }, [isMenuOpen])
 
-  // Reset expanded states when menu is closed
   useEffect(() => {
-    if (isMenuOpen === false) {
+    if (!isMenuOpen) {
       setIsDashboardExpanded(false)
       setIsUserProfileExpanded(false)
     }
@@ -62,7 +60,7 @@ function App() {
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
-    console.log("Menu toggled, new state:", !isMenuOpen) // Debug log
+    console.log("Menu toggled, new state:", !isMenuOpen)
   }
 
   const renderScreen = () => {
@@ -93,12 +91,12 @@ function App() {
           />
         )
       case "threadView":
-      return (
-        <ThreadViewScreen
-          threadId={selectedThreadId}
-          onBackClick={() => setCurrentScreen("discussionForum")}
-        />
-      )
+        return (
+          <ThreadViewScreen
+            threadId={selectedThreadId}
+            onBackClick={() => setCurrentScreen("discussionForum")}
+          />
+        )
       case "soilHealth":
         return <SoilHealthScreen onBackClick={() => setCurrentScreen("dashboard")} />
       case "insights":
@@ -106,20 +104,31 @@ function App() {
       case "recommendations":
         return <RecommendationsScreen onBackClick={() => setCurrentScreen("dashboard")} />
       case "discussionForum":
-      return (
-        <DiscussionForumScreen
-          onBackClick={() => setCurrentScreen("dashboard")}
-          onThreadClick={(threadId) => {
-            setSelectedThreadId(threadId)
-            setCurrentScreen("threadView")
-          }}
-        />
-      )
+        return (
+          <DiscussionForumScreen
+            onBackClick={() => setCurrentScreen("dashboard")}
+            onThreadClick={(threadId) => {
+              setSelectedThreadId(threadId)
+              setCurrentScreen("threadView")
+            }}
+          />
+        )
       case "userProfile":
         return (
           <UserProfileScreen
             onBackClick={() => setCurrentScreen("dashboard")}
-            onRegisterClick={() => {alert("Farm details registered!")}}
+            onRegisterClick={() => {
+              alert("Farm details registered!")
+            }}
+          />
+        )
+      case "farmSetup":
+        return (
+          <FarmSetupScreen
+            onBackClick={() => setCurrentScreen("dashboard")}
+            onSubmitClick={() => {
+              alert("Farm setup completed!")
+            }}
           />
         )
       default:
@@ -127,7 +136,6 @@ function App() {
     }
   }
 
-  // Check if we should show the navbar
   const showNavbar = [
     "dashboard",
     "soilHealth",
@@ -136,6 +144,7 @@ function App() {
     "userProfile",
     "farmSetup",
     "discussionForum",
+    "threadView",
   ].includes(currentScreen)
 
   return (
@@ -143,18 +152,16 @@ function App() {
       <div className="w-full max-w-sm h-[600px] overflow-hidden relative bg-white shadow-lg rounded-lg">
         {renderScreen()}
 
-        {/* Dropdown Menu - simplified conditional rendering */}
         {isMenuOpen && showNavbar && (
           <div
             ref={menuRef}
             className="absolute bottom-12 right-0 w-48 bg-white border border-gray-200 rounded-t-md shadow-lg z-50"
           >
             <div className="py-3">
-              {/* Centered Logout Button in Red Rectangle */}
               <div className="px-4 mb-2">
                 <button
                   onClick={() => {
-                    setCurrentScreen("login") // Navigate back to login page
+                    setCurrentScreen("login")
                     setIsMenuOpen(false)
                   }}
                   className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 transition-colors"
@@ -165,7 +172,6 @@ function App() {
               </div>
 
               <div className="border-t border-gray-200 mt-1 pt-1">
-                {/* Dashboard Section */}
                 <button
                   onClick={() => setIsDashboardExpanded(!isDashboardExpanded)}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"
@@ -215,7 +221,6 @@ function App() {
                   </div>
                 )}
 
-                {/* User Profile Section */}
                 <button
                   onClick={() => setIsUserProfileExpanded(!isUserProfileExpanded)}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"
@@ -228,14 +233,13 @@ function App() {
                   <div className="pl-4">
                     <button
                       onClick={() => {
-                        setCurrentScreen("userProfile")
+                        setCurrentScreen("farmSetup")
                         setIsMenuOpen(false)
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       Farm Setup
                     </button>
-                    
                   </div>
                 )}
               </div>
@@ -244,7 +248,8 @@ function App() {
         )}
 
         {/* Navbar */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
+        {showNavbar && (
+          <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
             <button
               onClick={() => setCurrentScreen("dashboard")}
               className="flex flex-col items-center justify-center w-1/3"
@@ -265,12 +270,10 @@ function App() {
               <Menu size={20} />
             </button>
           </div>
-        )
+        )}
       </div>
     </div>
   )
 }
-
-
 
 export default App
