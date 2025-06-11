@@ -27,17 +27,15 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
           Authorization: `Bearer ${token}`,
         },
       })
-    .then((res) => {
-      const data = Array.isArray(res.data) ? res.data : []
-      setTopics(data)
-      const topicData = Array.isArray(res.data.results) ? res.data.results : []
-      setTopics(topicData)
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : []
+        const topicData = Array.isArray(res.data.results) ? res.data.results : []
+        setTopics(topicData)
 
-      topicData.forEach((topic) => {
-        fetchThreadsForTopic(topic.id, activeFilter)
+        topicData.forEach((topic) => {
+          fetchThreadsForTopic(topic.id, activeFilter)
+        })
       })
-
-    })
       .catch((err) => console.error("Failed to fetch topics:", err))
   }, [])
 
@@ -46,7 +44,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   }, [activeFilter])
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
-    const token = localStorage.getItem("accessToken") // JWT token
+    const token = localStorage.getItem("accessToken")
     let url = `http://localhost:8000/forum/threads/?topic=${topicId}`
     if (sort !== "all") url += `&sort=${sort}`
 
@@ -72,7 +70,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     if (!token) return alert("You must be logged in to create a thread.")
 
     try {
-      const res = await axios.post(
+      await axios.post(
         "http://localhost:8000/forum/threads/",
         {
           topic: newThreadTopic,
@@ -107,7 +105,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
       </div>
 
       <div className="flex-1 overflow-y-auto bg-[#d1e6b2]">
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 pb-24">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Community</h2>
             <div className="relative">
@@ -194,7 +192,6 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
             </div>
           )}
 
-          {/* Topics Grid */}
           <div className="grid grid-cols-1 gap-4">
             {topics.map((topic, index) => (
               <div
