@@ -14,7 +14,10 @@ import RegisterForm from "./components/RegisterForm"
 import SoilHealthScreen from "./components/SoilHealthScreen"
 import ThreadViewScreen from "./components/ThreadViewScreen"
 import UserProfileScreen from "./components/UserProfileScreen"
-import FarmSetupScreen from "./components/FarmSetupScreen" // ✅ ADD THIS LINE
+import FarmSetupScreen from "./components/FarmSetupScreen"
+import ViewSensorData from "./components/ViewSensorData"
+import UploadSensorData from "./components/UploadSensorData" // ✅ ADD THIS LINE
+
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("login")
@@ -98,7 +101,13 @@ function App() {
           />
         )
       case "soilHealth":
-        return <SoilHealthScreen onBackClick={() => setCurrentScreen("dashboard")} />
+        return (
+          <SoilHealthScreen
+            onBackClick={() => setCurrentScreen("dashboard")}
+            onViewSensorClick={() => setCurrentScreen("viewSensorData")}
+            onUploadSensorClick={() => setCurrentScreen("uploadSensorData")} // ✅ ADD THIS LINE
+          />
+        )
       case "insights":
         return <InsightsScreen onBackClick={() => setCurrentScreen("dashboard")} />
       case "recommendations":
@@ -131,6 +140,24 @@ function App() {
             }}
           />
         )
+      case "viewSensorData":
+        return (
+          <ViewSensorData
+            onBackClick={() => setCurrentScreen("soilHealth")}
+            onHomeClick={() => setCurrentScreen("dashboard")}
+            onProfileClick={() => setCurrentScreen("farmSetup")}
+            onMenuClick={() => setIsMenuOpen(true)}
+          />
+        )
+      case "uploadSensorData": // ✅ ADD THIS CASE
+        return (
+          <UploadSensorData
+            onBackClick={() => setCurrentScreen("soilHealth")}
+            onHomeClick={() => setCurrentScreen("dashboard")}
+            onProfileClick={() => setCurrentScreen("farmSetup")}
+            onMenuClick={() => setIsMenuOpen(true)}
+          />
+        )
       default:
         return <LoginScreen onLoginClick={() => setCurrentScreen("loginForm")} />
     }
@@ -145,6 +172,7 @@ function App() {
     "farmSetup",
     "discussionForum",
     "threadView",
+    "uploadSensorData", // ✅ ADD THIS LINE
   ].includes(currentScreen)
 
   return (
