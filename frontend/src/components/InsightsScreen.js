@@ -1,7 +1,21 @@
 "use client"
+
 import { ArrowLeft, Droplets, FlaskConical, Info, Leaf } from "lucide-react"
+import { useState, useEffect } from "react"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function InsightsScreen({ onBackClick }) {
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (loading) {
+    return <LoadingSpinner />
+  }
+
   return (
     <div className="flex flex-col h-full pb-12">
       <div className="p-4 bg-white flex items-center">
@@ -22,26 +36,22 @@ export default function InsightsScreen({ onBackClick }) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
-          bg-white">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white">
             <Droplets className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">Water</span>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
-          bg-white">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white">
             <Leaf className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">Planting</span>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
-          bg-white">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white">
             <FlaskConical className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">Fertilizer</span>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow
-          bg-white">
+          <div className="flex flex-col items-center justify-center p-3 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white">
             <Info className="h-10 w-10 text-[#2a9d4a] mb-2" />
             <span className="text-sm font-medium">General</span>
           </div>

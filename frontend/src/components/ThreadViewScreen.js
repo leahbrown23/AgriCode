@@ -1,6 +1,7 @@
 import axios from "axios"
 import { ArrowLeft } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function ThreadViewScreen({ threadId, onBackClick }) {
   const [thread, setThread] = useState(null)
@@ -10,19 +11,23 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   const [error, setError] = useState(null)
   const [nextOffset, setNextOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [screenLoading, setScreenLoading] = useState(true)
   const messageEndRef = useRef(null)
 
   const token = localStorage.getItem("accessToken")
-  const LIMIT = 10 // number of messages per page
+  const LIMIT = 10
 
   useEffect(() => {
-    fetchThread()
-    resetMessages()
+    const loadAll = async () => {
+      await fetchThread()
+      await resetMessages()
+      setTimeout(() => setScreenLoading(false), 1000)
+    }
+    loadAll()
   }, [threadId])
 
   useEffect(() => {
     if (nextOffset === LIMIT && messageEndRef.current) {
-      // Only scroll to bottom on initial load or after sending
       messageEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
   }, [messages])
@@ -61,10 +66,8 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
 
       let newMessages = Array.isArray(res.data.results) ? res.data.results : []
 
-      // Backend returns newest first — reverse to display oldest at top
       newMessages.reverse()
 
-      // Combine and deduplicate
       const combined = [...newMessages, ...messages]
       const uniqueMessagesMap = new Map()
       combined.forEach((msg) => uniqueMessagesMap.set(msg.id, msg))
@@ -77,7 +80,6 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         setHasMore(false)
       }
 
-      // Restore previous scroll position
       setTimeout(() => {
         if (container) {
           const newScrollHeight = container.scrollHeight
@@ -101,7 +103,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setNewMessage("")
-      resetMessages() // Reload messages after sending
+      resetMessages()
     } catch (err) {
       console.error("Error sending message:", err)
       setError("Failed to send message")
@@ -110,9 +112,10 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
     }
   }
 
+  if (screenLoading) return <LoadingSpinner />
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="sticky top-0 z-10 p-4 bg-white flex items-center">
         <button onClick={onBackClick} className="mr-2">
           <ArrowLeft className="h-5 w-5" />
@@ -120,7 +123,6 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         <h1 className="text-lg font-semibold flex-1 text-center">Thread</h1>
       </div>
 
-      {/* Thread Info */}
       {thread && (
         <div className="bg-[#f0fdf4] px-4 py-3 border-b border-green-300">
           <h2 className="text-md font-semibold">{thread.title}</h2>
@@ -128,7 +130,6 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         </div>
       )}
 
-      {/* Messages */}
       <div
         id="chat-scroll-container"
         className="flex-1 overflow-y-auto px-4 py-2 space-y-3 bg-[#f9f9f9]"
@@ -162,7 +163,6 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         <div ref={messageEndRef} />
       </div>
 
-      {/* Input */}
       <div className="p-3 border-t bg-white flex items-center gap-2">
         <input
           type="text"

@@ -1,8 +1,22 @@
 "use client"
 
 import { ArrowLeft } from "lucide-react"
+import { useState, useEffect } from "react"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function FarmSetupScreen({ onRegisterClick, onBackClick }) {
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Simulate data loading
+    const timer = setTimeout(() => setLoading(false), 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (loading) {
+    return <LoadingSpinner />
+  }
+
   return (
     <div className="flex flex-col h-full pb-12">
       <div className="p-4 bg-white flex items-center">

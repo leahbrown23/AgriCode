@@ -102,14 +102,14 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
       <div className="w-full space-y-4 max-w-md">
         <input
           type="email"
-          placeholder="adam@budgeonline.com"
+          placeholder="Email"
           className="w-full bg-white border-2 border-gray-200 p-3 rounded-lg text-gray-800 placeholder-gray-500 focus:border-[#2a9d4a] focus:outline-none transition-colors"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
         <input
           type="password"
-          placeholder="••••••••"
+          placeholder="Password"
           className="w-full bg-white border-2 border-gray-200 p-3 rounded-lg text-gray-800 placeholder-gray-500 focus:border-[#2a9d4a] focus:outline-none transition-colors"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

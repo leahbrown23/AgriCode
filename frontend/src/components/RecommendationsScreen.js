@@ -1,8 +1,19 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { ArrowLeft, Check, Home, Menu, User } from "lucide-react"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function RecommendationsScreen({ onBackClick, setCurrentScreen, currentScreen }) {
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (loading) return <LoadingSpinner />
+
   return (
     <div className="flex flex-col h-full pb-12 relative">
       <div className="p-4 bg-white flex items-center">
@@ -17,7 +28,6 @@ export default function RecommendationsScreen({ onBackClick, setCurrentScreen, c
         <div className="flex justify-center mb-4">
           <div className="bg-white rounded-full py-3 px-10 relative">
             <span className="text-lg font-medium">Alerts</span>
-            {/* Speech bubble tail */}
             <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[16px] border-t-white"></div>
           </div>
         </div>
@@ -30,17 +40,14 @@ export default function RecommendationsScreen({ onBackClick, setCurrentScreen, c
             </div>
             <span className="text-black">Water Plants before 3pm</span>
           </div>
-
           <div className="flex items-start">
             <div className="w-6 h-6 rounded border border-gray-400 bg-white mr-3"></div>
             <span className="text-black">Apply lime to raise soil pH to an optimal 6.0-6.8 for maize</span>
           </div>
-
           <div className="flex items-start">
             <div className="w-6 h-6 rounded border border-gray-400 bg-white mr-3"></div>
             <span className="text-black">Apply nitrogen-rich fertilizers</span>
           </div>
-
           <div className="flex items-start">
             <div className="w-6 h-6 rounded border border-gray-400 bg-white mr-3"></div>
             <span className="text-black">Apply gypsum or calcium nitrate to improve calcium availability</span>
@@ -55,7 +62,7 @@ export default function RecommendationsScreen({ onBackClick, setCurrentScreen, c
         </div>
       </div>
 
-      {/* Bottom Navigation - Only show on main screens */}
+      {/* Bottom Navigation */}
       {["dashboard", "soilHealth", "insights", "recommendations", "userProfile"].includes(currentScreen) && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
           <button onClick={() => setCurrentScreen("dashboard")} className="flex flex-col items-center justify-center w-1/3">
