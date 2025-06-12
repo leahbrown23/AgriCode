@@ -1,9 +1,10 @@
 "use client"
 
 import axios from "axios"
-import { ArrowLeft, Filter } from "lucide-react"
+import { ArrowLeft, Filter, Star, StarOff } from "lucide-react"
 import { useEffect, useState } from "react"
 import LoadingSpinner from "./LoadingSpinner"
+
 
 export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [topics, setTopics] = useState([])
@@ -16,29 +17,28 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [newThreadMessage, setNewThreadMessage] = useState("")
   const [newThreadTopic, setNewThreadTopic] = useState("")
   const [loading, setLoading] = useState(true)
+  const [favoriteThreadIds, setFavoriteThreadIds] = useState(() => {
+    const stored = localStorage.getItem("favorites")
+    return stored ? JSON.parse(stored) : []
+  })
 
   const filterOptions = [
     { id: "all", label: "All Threads" },
     { id: "new", label: "New" },
     { id: "trending", label: "Trending" },
     { id: "popular", label: "Popular" },
+    { id: "favorites", label: "Favorites" },
   ]
 
   useEffect(() => {
     axios
       .get("http://localhost:8000/forum/topics/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
         const topicData = Array.isArray(res.data.results) ? res.data.results : []
         setTopics(topicData)
-
-        topicData.forEach((topic) => {
-          fetchThreadsForTopic(topic.id, activeFilter)
-        })
-
+        topicData.forEach((topic) => fetchThreadsForTopic(topic.id, activeFilter))
         setLoading(false)
       })
       .catch((err) => {
@@ -52,21 +52,32 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   }, [activeFilter])
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
-    const token = localStorage.getItem("accessToken")
     let url = `http://localhost:8000/forum/threads/?topic=${topicId}`
     if (sort !== "all") url += `&sort=${sort}`
 
     try {
       const res = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       })
-      const threadList = Array.isArray(res.data.results) ? res.data.results : []
+      let threadList = Array.isArray(res.data.results) ? res.data.results : []
+
+      if (sort === "favorites") {
+        threadList = threadList.filter((thread) => favoriteThreadIds.includes(thread.id))
+      }
+
       setThreadsByTopic((prev) => ({ ...prev, [topicId]: threadList }))
     } catch (err) {
       console.error(`Failed to fetch threads for topic ${topicId}:`, err)
     }
+  }
+
+  const toggleFavorite = (threadId) => {
+    const updated = favoriteThreadIds.includes(threadId)
+      ? favoriteThreadIds.filter((id) => id !== threadId)
+      : [...favoriteThreadIds, threadId]
+
+    setFavoriteThreadIds(updated)
+    localStorage.setItem("favorites", JSON.stringify(updated))
   }
 
   const handleThreadClick = (topicId, threadId) => {
@@ -79,16 +90,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     try {
       await axios.post(
         "http://localhost:8000/forum/threads/",
-        {
-          topic: newThreadTopic,
-          title: newThreadTitle,
-          message: newThreadMessage,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { topic: newThreadTopic, title: newThreadTitle, message: newThreadMessage },
+        { headers: { Authorization: `Bearer ${token}` } }
       )
       alert("Thread created successfully!")
       setShowCreateForm(false)
@@ -102,9 +105,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     }
   }
 
-  if (loading) {
-    return <LoadingSpinner />
-  }
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="flex flex-col h-full">
@@ -135,9 +136,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
                     {filterOptions.map((option) => (
                       <button
                         key={option.id}
-                        className={`block px-4 py-2 text-sm w-full text-left ${
-                          activeFilter === option.id ? "bg-gray-100" : ""
-                        }`}
+                        className={`block px-4 py-2 text-sm w-full text-left ${activeFilter === option.id ? "bg-gray-100" : ""}`}
                         onClick={() => {
                           setActiveFilter(option.id)
                           setShowFilterMenu(false)
@@ -169,9 +168,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
               >
                 <option value="">Select Topic</option>
                 {topics.map((topic) => (
-                  <option key={topic.id} value={topic.id}>
-                    {topic.title}
-                  </option>
+                  <option key={topic.id} value={topic.id}>{topic.title}</option>
                 ))}
               </select>
               <input
@@ -215,38 +212,43 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
                   <h3 className="text-lg">Topic: {topic.title}</h3>
                 </div>
                 <div className="bg-white p-2 space-y-2">
-                  {(threadsByTopic[topic.id] || [])
-                    .slice(0, 3)
-                    .map((thread) => (
-                      <div
-                        key={thread.id}
-                        className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
-                        onClick={() => handleThreadClick(topic.id, thread.id)}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
-                            {thread.title.charAt(0).toUpperCase()}
+                  {(threadsByTopic[topic.id] || []).slice(0, 3).map((thread) => (
+                    <div
+                      key={thread.id}
+                      className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                      onClick={() => handleThreadClick(topic.id, thread.id)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
+                          {thread.title.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold">{thread.title}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleFavorite(thread.id)
+                              }}
+                            >
+                              {favoriteThreadIds.includes(thread.id) ? (
+                                <Star className="text-yellow-400 w-4 h-4" />
+                              ) : (
+                                <StarOff className="text-gray-400 w-4 h-4" />
+                              )}
+                            </button>
                           </div>
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <span className="font-semibold">{thread.title}</span>
-                              <span className="text-xs text-gray-500">
-                                {activeFilter === "trending"
-                                  ? `${thread.views} views`
-                                  : `${thread.message_count} replies`}
-                              </span>
-                            </div>
-                            <span className="text-xs px-2 py-1 bg-gray-200 rounded-full capitalize">
-                              {activeFilter === "trending"
-                                ? "Views"
-                                : activeFilter === "popular"
-                                ? "Replies"
-                                : "Replies"}
-                            </span>
-                          </div>
+                          <span className="text-xs px-2 py-1 bg-gray-200 rounded-full capitalize">
+                            {activeFilter === "trending"
+                              ? "Views"
+                              : activeFilter === "popular"
+                              ? "Replies"
+                              : "Replies"}
+                          </span>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  ))}
                   {(threadsByTopic[topic.id] || []).length === 0 && (
                     <div className="text-center py-4 text-gray-500">No threads found</div>
                   )}
