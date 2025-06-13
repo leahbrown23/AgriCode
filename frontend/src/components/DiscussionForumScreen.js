@@ -1,17 +1,15 @@
 "use client"
 
-import axios from "axios"
 import { ArrowLeft, Filter, Star, StarOff } from "lucide-react"
 import { useEffect, useState } from "react"
+import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
-
 
 export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [topics, setTopics] = useState([])
   const [threadsByTopic, setThreadsByTopic] = useState({})
   const [activeFilter, setActiveFilter] = useState("all")
   const [showFilterMenu, setShowFilterMenu] = useState(false)
-  const token = localStorage.getItem("accessToken")
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newThreadTitle, setNewThreadTitle] = useState("")
   const [newThreadMessage, setNewThreadMessage] = useState("")
@@ -31,10 +29,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   ]
 
   useEffect(() => {
-    axios
-      .get("http://localhost:8000/forum/topics/", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    api
+      .get("/forum/topics/")
       .then((res) => {
         const topicData = Array.isArray(res.data.results) ? res.data.results : []
         setTopics(topicData)
@@ -52,13 +48,11 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   }, [activeFilter])
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
-    let url = `http://localhost:8000/forum/threads/?topic=${topicId}`
+    let url = `/forum/threads/?topic=${topicId}`
     if (sort !== "all") url += `&sort=${sort}`
 
     try {
-      const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await api.get(url)
       let threadList = Array.isArray(res.data.results) ? res.data.results : []
 
       if (sort === "favorites") {
@@ -85,14 +79,13 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   }
 
   const handleCreateThread = async () => {
-    if (!token) return alert("You must be logged in to create a thread.")
-
+    // no need to check token here because interceptor will handle unauthenticated requests gracefully
     try {
-      await axios.post(
-        "http://localhost:8000/forum/threads/",
-        { topic: newThreadTopic, title: newThreadTitle, message: newThreadMessage },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      await api.post("/forum/threads/", {
+        topic: newThreadTopic,
+        title: newThreadTitle,
+        message: newThreadMessage,
+      })
       alert("Thread created successfully!")
       setShowCreateForm(false)
       setNewThreadTitle("")
@@ -136,7 +129,9 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
                     {filterOptions.map((option) => (
                       <button
                         key={option.id}
-                        className={`block px-4 py-2 text-sm w-full text-left ${activeFilter === option.id ? "bg-gray-100" : ""}`}
+                        className={`block px-4 py-2 text-sm w-full text-left ${
+                          activeFilter === option.id ? "bg-gray-100" : ""
+                        }`}
                         onClick={() => {
                           setActiveFilter(option.id)
                           setShowFilterMenu(false)
@@ -168,7 +163,9 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
               >
                 <option value="">Select Topic</option>
                 {topics.map((topic) => (
-                  <option key={topic.id} value={topic.id}>{topic.title}</option>
+                  <option key={topic.id} value={topic.id}>
+                    {topic.title}
+                  </option>
                 ))}
               </select>
               <input

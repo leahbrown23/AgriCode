@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import api from "../api/api"
+
 
 export default function LoginForm({ onLoginClick, onSignUpClick }) {
   const [email, setEmail] = useState("")
@@ -9,54 +11,38 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
   const [isError, setIsError] = useState(false)
   const [messageBoxVisible, setMessageBoxVisible] = useState(false)
 
-  const handleLogin = async () => {
-    // Basic validation
-    if (!email || !password) {
-      setMessage("Please enter both email and password.")
-      setIsError(true)
-      setMessageBoxVisible(true)
-      return
-    }
-
-    try {
-      const res = await fetch("http://localhost:8000/api/login/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username: email,
-          password: password
-        })
-      })
-
-      const data = await res.json()
-
-     if (res.ok) {
-  // Store tokens in localStorage
-  localStorage.setItem("accessToken", data.access)
-  localStorage.setItem("refreshToken", data.refresh)
-
-  // Use messageBox for feedback
-  setMessage("Login successful! Redirecting to dashboard...")
-  setIsError(false)
-  setMessageBoxVisible(true)
-
-  // Simulate redirect delay
-  setTimeout(() => {
-    if (onLoginClick) onLoginClick()
-  }, 2000)
-} else {
-  setMessage("Login failed: " + (data.detail || "Invalid email or password. Please try again."))
-  setIsError(true)
-  setMessageBoxVisible(true)
-}
-    } catch (error) {
-      setMessage("Connection error: Unable to connect to server. Please check your internet connection.")
-      setIsError(true)
-      setMessageBoxVisible(true)
-    }
+const handleLogin = async () => {
+  if (!email || !password) {
+    setMessage("Please enter both email and password.")
+    setIsError(true)
+    setMessageBoxVisible(true)
+    return
   }
+
+  try {
+    const res = await api.post("/api/login/", {
+      username: email,
+      password: password
+    })
+
+    localStorage.setItem("accessToken", res.data.access)
+    localStorage.setItem("refreshToken", res.data.refresh)
+
+    setMessage("Login successful! Redirecting to dashboard...")
+    setIsError(false)
+    setMessageBoxVisible(true)
+
+    setTimeout(() => {
+      if (onLoginClick) onLoginClick()
+    }, 2000)
+  } catch (error) {
+    const errorMsg = error.response?.data?.detail || "Invalid email or password. Please try again."
+    setMessage("Login failed: " + errorMsg)
+    setIsError(true)
+    setMessageBoxVisible(true)
+  }
+}
+
 
   const closeMessageBox = () => {
     setMessageBoxVisible(false)
