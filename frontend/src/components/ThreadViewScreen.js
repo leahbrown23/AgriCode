@@ -1,6 +1,6 @@
-import axios from "axios"
 import { ArrowLeft } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
 export default function ThreadViewScreen({ threadId, onBackClick }) {
@@ -14,7 +14,6 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   const [screenLoading, setScreenLoading] = useState(true)
   const messageEndRef = useRef(null)
 
-  const token = localStorage.getItem("accessToken")
   const LIMIT = 10
 
   useEffect(() => {
@@ -34,9 +33,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
 
   const fetchThread = async () => {
     try {
-      const res = await axios.get(`http://localhost:8000/forum/threads/${threadId}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await api.get(`/forum/threads/${threadId}/`)
       setThread(res.data)
     } catch (err) {
       console.error("Error fetching thread:", err)
@@ -55,8 +52,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
       const container = document.querySelector("#chat-scroll-container")
       const prevScrollHeight = container?.scrollHeight || 0
 
-      const res = await axios.get(`http://localhost:8000/forum/chats/`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await api.get(`/forum/chats/`, {
         params: {
           thread: threadId,
           limit: LIMIT,
@@ -65,7 +61,6 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
       })
 
       let newMessages = Array.isArray(res.data.results) ? res.data.results : []
-
       newMessages.reverse()
 
       const combined = [...newMessages, ...messages]
@@ -97,11 +92,10 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
     setError(null)
 
     try {
-      await axios.post(
-        "http://localhost:8000/forum/chats/",
-        { thread: threadId, content: newMessage },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      await api.post(`/forum/chats/`, {
+        thread: threadId,
+        content: newMessage,
+      })
       setNewMessage("")
       resetMessages()
     } catch (err) {
