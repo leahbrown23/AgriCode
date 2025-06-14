@@ -110,6 +110,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Header */}
       <div className="sticky top-0 z-10 p-4 bg-white flex items-center">
         <button onClick={onBackClick} className="mr-2">
           <ArrowLeft className="h-5 w-5" />
@@ -117,6 +118,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         <h1 className="text-lg font-semibold flex-1 text-center">Thread</h1>
       </div>
 
+      {/* Thread Title */}
       {thread && (
         <div className="bg-[#f0fdf4] px-4 py-3 border-b border-green-300">
           <h2 className="text-md font-semibold">{thread.title}</h2>
@@ -124,9 +126,10 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         </div>
       )}
 
+      {/* Scrollable messages */}
       <div
         id="chat-scroll-container"
-        className="flex-1 overflow-y-auto px-4 py-2 space-y-3 bg-[#f9f9f9]"
+        className="flex-1 overflow-y-auto px-4 pt-2 pb-28 space-y-3 bg-[#f9f9f9] min-h-0"
       >
         {hasMore && (
           <div className="text-center">
@@ -157,7 +160,8 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         <div ref={messageEndRef} />
       </div>
 
-      <div className="p-3 border-t bg-white flex items-center gap-2">
+      {/* Input bar */}
+      <div className="p-3 border-t bg-white flex items-center gap-2 z-10">
         <input
           type="text"
           value={newMessage}
@@ -174,7 +178,12 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         </button>
       </div>
 
-      {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+      {/* Error message */}
+      {error && (
+        <div className="text-center mt-1">
+          <p className="text-red-500 text-xs bg-white px-2 py-1 inline-block rounded">{error}</p>
+        </div>
+      )}
     </div>
   )
 }
