@@ -5,7 +5,6 @@ from forum.models import Thread
 
 # Create your models here.
 class CustomUser(AbstractUser):
-    farm_name = models.CharField(max_length=100, blank=True)
     favorite_threads = models.ManyToManyField(Thread, related_name="favorited_by", blank=True)
     def __str__(self):
         return self.username

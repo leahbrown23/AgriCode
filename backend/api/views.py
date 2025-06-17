@@ -29,7 +29,6 @@ class ProfileView(APIView):
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
-            "farm_name": user.farm_name,
         })
     
 @api_view(['GET', 'POST', 'PUT'])
