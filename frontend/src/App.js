@@ -4,6 +4,7 @@ import axios from "axios"
 import { ChevronDown, ChevronRight, Home, LogOut, Menu, User } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import "./App.css"
+import CropSetupScreen from "./components/CropSetupScreen"
 import DashboardScreen from "./components/DashboardScreen"
 import DiscussionForumScreen from "./components/DiscussionForumScreen"
 import FarmSetupScreen from "./components/FarmSetupScreen"
@@ -138,6 +139,13 @@ function App() {
             onSubmitClick={() => {
               alert("Farm setup completed!")
             }}
+            onAddCropsClick={() => setCurrentScreen("cropSetup")}
+          />
+        )
+      case "cropSetup":
+        return (
+          <CropSetupScreen
+            onBackClick={() => setCurrentScreen("farmSetup")}
           />
         )
       case "viewSensorData":
