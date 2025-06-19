@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import "./App.css"
 import DashboardScreen from "./components/DashboardScreen"
 import DiscussionForumScreen from "./components/DiscussionForumScreen"
+import FarmSetupScreen from "./components/FarmSetupScreen"
 import InsightsScreen from "./components/InsightsScreen"
 import LoginForm from "./components/LoginForm"
 import LoginScreen from "./components/LoginScreen"
@@ -13,10 +14,9 @@ import RecommendationsScreen from "./components/RecommendationsScreen"
 import RegisterForm from "./components/RegisterForm"
 import SoilHealthScreen from "./components/SoilHealthScreen"
 import ThreadViewScreen from "./components/ThreadViewScreen"
+import UploadSensorData from "./components/UploadSensorData"; // ✅ ADD THIS LINE
 import UserProfileScreen from "./components/UserProfileScreen"
-import FarmSetupScreen from "./components/FarmSetupScreen"
 import ViewSensorData from "./components/ViewSensorData"
-import UploadSensorData from "./components/UploadSensorData" // ✅ ADD THIS LINE
 
 
 function App() {
@@ -172,7 +172,7 @@ function App() {
     "farmSetup",
     "discussionForum",
     "threadView",
-    "uploadSensorData", // ✅ ADD THIS LINE
+    "uploadSensorData",
   ].includes(currentScreen)
 
   return (

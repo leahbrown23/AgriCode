@@ -10,8 +10,8 @@ from .models import CustomUser
 from .serializers import RegisterSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .models import Farm
-from .serializers import FarmSerializer
+from .models import Farm, Crop
+from .serializers import FarmSerializer, CropSerializer
 from rest_framework.permissions import AllowAny
 
 class RegisterView(generics.CreateAPIView):
@@ -50,4 +50,25 @@ def farm_view(request):
         if serializer.is_valid():
             serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_200_OK if farm else status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=400)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def crop_view(request):
+    if request.method == 'GET':
+        crops = Crop.objects.filter(user=request.user)
+        serializer = CropSerializer(crops, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        try:
+            farm = Farm.objects.get(user=request.user)
+        except Farm.DoesNotExist:
+            return Response({'detail': 'Farm not found'}, status=404)
+
+        serializer = CropSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user, farm=farm)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=400)
