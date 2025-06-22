@@ -48,29 +48,28 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     topics.forEach((topic) => fetchThreadsForTopic(topic.id, activeFilter))
   }, [activeFilter])
 
-const fetchThreadsForTopic = async (topicId, sort = "all") => {
-  let url = `/forum/threads/?topic=${topicId}`
-  if (sort !== "all") url += `&sort=${sort}`
+  const fetchThreadsForTopic = async (topicId, sort = "all") => {
+    let url = `/forum/threads/?topic=${topicId}`
+    if (sort !== "all") url += `&sort=${sort}`
 
-  setTopicLoading((prev) => ({ ...prev, [topicId]: true }))
+    setTopicLoading((prev) => ({ ...prev, [topicId]: true }))
 
-  try {
-    const res = await api.get(url)
-    let threadList = Array.isArray(res.data.results) ? res.data.results : []
+    try {
+      const res = await api.get(url)
+      let threadList = Array.isArray(res.data.results) ? res.data.results : []
 
-    if (sort === "favorites") {
-      threadList = threadList.filter((thread) => favoriteThreadIds.includes(thread.id))
+      if (sort === "favorites") {
+        threadList = threadList.filter((thread) => favoriteThreadIds.includes(thread.id))
+      }
+
+      setThreadsByTopic((prev) => ({ ...prev, [topicId]: threadList }))
+    } catch (err) {
+      console.error(`Failed to fetch threads for topic ${topicId}:`, err)
+      setThreadsByTopic((prev) => ({ ...prev, [topicId]: [] }))
+    } finally {
+      setTopicLoading((prev) => ({ ...prev, [topicId]: false }))
     }
-
-    setThreadsByTopic((prev) => ({ ...prev, [topicId]: threadList }))
-  } catch (err) {
-    console.error(`Failed to fetch threads for topic ${topicId}:`, err)
-    setThreadsByTopic((prev) => ({ ...prev, [topicId]: [] }))
-  } finally {
-    setTopicLoading((prev) => ({ ...prev, [topicId]: false }))
   }
-}
-
 
   const toggleFavorite = (threadId) => {
     const updated = favoriteThreadIds.includes(threadId)
@@ -86,7 +85,6 @@ const fetchThreadsForTopic = async (topicId, sort = "all") => {
   }
 
   const handleCreateThread = async () => {
-    // no need to check token here because interceptor will handle unauthenticated requests gracefully
     try {
       await api.post("/forum/threads/", {
         topic: newThreadTopic,
@@ -216,91 +214,52 @@ const fetchThreadsForTopic = async (topicId, sort = "all") => {
                   <h3 className="text-lg">Topic: {topic.title}</h3>
                 </div>
                 <div className="bg-white p-2 space-y-2">
-                  {(threadsByTopic[topic.id] || []).slice(0, 3).map((thread) => (
-                    <div
-                      key={thread.id}
-                      className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
-                      onClick={() => handleThreadClick(topic.id, thread.id)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
-                          {thread.title.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">{thread.title}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleFavorite(thread.id)
-                              }}
-                            >
-                              {favoriteThreadIds.includes(thread.id) ? (
-                                <Star className="text-yellow-400 w-4 h-4" />
-                              ) : (
-                                <StarOff className="text-gray-400 w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
-                          <span className="text-xs px-2 py-1 bg-gray-200 rounded-full capitalize">
-                            {activeFilter === "trending"
-                              ? "Views"
-                              : activeFilter === "popular"
-                              ? "Replies"
-                              : "Replies"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                   {topicLoading[topic.id] ? (
-  <div className="flex justify-center py-4">
-    <LoadingSpinner small />
-  </div>
-) : (
-  <>
-    {(threadsByTopic[topic.id] || []).slice(0, 3).map((thread) => (
-      <div
-        key={thread.id}
-        className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
-        onClick={() => handleThreadClick(topic.id, thread.id)}
-      >
-        <div className="flex items-start space-x-3">
-          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
-            {thread.title.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold">{thread.title}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleFavorite(thread.id)
-                }}
-              >
-                {favoriteThreadIds.includes(thread.id) ? (
-                  <Star className="text-yellow-400 w-4 h-4" />
-                ) : (
-                  <StarOff className="text-gray-400 w-4 h-4" />
-                )}
-              </button>
-            </div>
-            <span className="text-xs px-2 py-1 bg-gray-200 rounded-full capitalize">
-              {activeFilter === "trending"
-                ? "Views"
-                : activeFilter === "popular"
-                ? "Replies"
-                : "Replies"}
-            </span>
-          </div>
-        </div>
-      </div>
-    ))}
-    {(threadsByTopic[topic.id] || []).length === 0 && (
-      <div className="text-center py-4 text-gray-500">No threads found</div>
-    )}
-  </>
-  )}
+                    <div className="flex justify-center py-4">
+                      <LoadingSpinner small />
+                    </div>
+                  ) : (
+                    <>
+                      {(threadsByTopic[topic.id] || []).slice(0, 3).map((thread) => (
+                        <div
+                          key={thread.id}
+                          className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                          onClick={() => handleThreadClick(topic.id, thread.id)}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
+                              {thread.title.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex justify-between items-center">
+                                <span className="font-semibold">{thread.title}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    toggleFavorite(thread.id)
+                                  }}
+                                >
+                                  {favoriteThreadIds.includes(thread.id) ? (
+                                    <Star className="text-yellow-400 w-4 h-4" />
+                                  ) : (
+                                    <StarOff className="text-gray-400 w-4 h-4" />
+                                  )}
+                                </button>
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1 flex space-x-2">
+                                <span>{thread.replies_count ?? 0} Replies</span>
+                                <span>•</span>
+                                <span>{thread.views_count ?? 0} Views</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {(threadsByTopic[topic.id] || []).length === 0 && (
+                        <div className="text-center py-4 text-gray-500">No threads found</div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             ))}
