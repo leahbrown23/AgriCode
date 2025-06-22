@@ -8,6 +8,7 @@ import LoadingSpinner from "./LoadingSpinner"
 export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [topics, setTopics] = useState([])
   const [threadsByTopic, setThreadsByTopic] = useState({})
+  const [topicLoading, setTopicLoading] = useState({})
   const [activeFilter, setActiveFilter] = useState("all")
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -47,23 +48,29 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     topics.forEach((topic) => fetchThreadsForTopic(topic.id, activeFilter))
   }, [activeFilter])
 
-  const fetchThreadsForTopic = async (topicId, sort = "all") => {
-    let url = `/forum/threads/?topic=${topicId}`
-    if (sort !== "all") url += `&sort=${sort}`
+const fetchThreadsForTopic = async (topicId, sort = "all") => {
+  let url = `/forum/threads/?topic=${topicId}`
+  if (sort !== "all") url += `&sort=${sort}`
 
-    try {
-      const res = await api.get(url)
-      let threadList = Array.isArray(res.data.results) ? res.data.results : []
+  setTopicLoading((prev) => ({ ...prev, [topicId]: true }))
 
-      if (sort === "favorites") {
-        threadList = threadList.filter((thread) => favoriteThreadIds.includes(thread.id))
-      }
+  try {
+    const res = await api.get(url)
+    let threadList = Array.isArray(res.data.results) ? res.data.results : []
 
-      setThreadsByTopic((prev) => ({ ...prev, [topicId]: threadList }))
-    } catch (err) {
-      console.error(`Failed to fetch threads for topic ${topicId}:`, err)
+    if (sort === "favorites") {
+      threadList = threadList.filter((thread) => favoriteThreadIds.includes(thread.id))
     }
+
+    setThreadsByTopic((prev) => ({ ...prev, [topicId]: threadList }))
+  } catch (err) {
+    console.error(`Failed to fetch threads for topic ${topicId}:`, err)
+    setThreadsByTopic((prev) => ({ ...prev, [topicId]: [] }))
+  } finally {
+    setTopicLoading((prev) => ({ ...prev, [topicId]: false }))
   }
+}
+
 
   const toggleFavorite = (threadId) => {
     const updated = favoriteThreadIds.includes(threadId)
@@ -246,9 +253,54 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
                       </div>
                     </div>
                   ))}
-                  {(threadsByTopic[topic.id] || []).length === 0 && (
-                    <div className="text-center py-4 text-gray-500">No threads found</div>
-                  )}
+                  {topicLoading[topic.id] ? (
+  <div className="flex justify-center py-4">
+    <LoadingSpinner small />
+  </div>
+) : (
+  <>
+    {(threadsByTopic[topic.id] || []).slice(0, 3).map((thread) => (
+      <div
+        key={thread.id}
+        className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+        onClick={() => handleThreadClick(topic.id, thread.id)}
+      >
+        <div className="flex items-start space-x-3">
+          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
+            {thread.title.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1">
+            <div className="flex justify-between items-center">
+              <span className="font-semibold">{thread.title}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleFavorite(thread.id)
+                }}
+              >
+                {favoriteThreadIds.includes(thread.id) ? (
+                  <Star className="text-yellow-400 w-4 h-4" />
+                ) : (
+                  <StarOff className="text-gray-400 w-4 h-4" />
+                )}
+              </button>
+            </div>
+            <span className="text-xs px-2 py-1 bg-gray-200 rounded-full capitalize">
+              {activeFilter === "trending"
+                ? "Views"
+                : activeFilter === "popular"
+                ? "Replies"
+                : "Replies"}
+            </span>
+          </div>
+        </div>
+      </div>
+    ))}
+    {(threadsByTopic[topic.id] || []).length === 0 && (
+      <div className="text-center py-4 text-gray-500">No threads found</div>
+    )}
+  </>
+  )}
                 </div>
               </div>
             ))}
