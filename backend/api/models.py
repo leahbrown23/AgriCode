@@ -6,11 +6,12 @@ from forum.models import Thread
 # Create your models here.
 class CustomUser(AbstractUser):
     favorite_threads = models.ManyToManyField(Thread, related_name="favorited_by", blank=True)
+    phone_number = models.CharField(max_length=50, blank=True, null=True)  # Add this line
+    
     def __str__(self):
         return self.username
-    
 
-
+# Rest of your models stay the same...
 class Farm(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     farm_name = models.CharField(max_length=100)

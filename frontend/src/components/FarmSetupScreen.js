@@ -84,7 +84,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         <button onClick={onBackClick} className="mr-2">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-lg font-semibold flex-1 text-center">Farm Setup</h1>
+        <h1 className="text-lg font-semibold flex-1 text-center">User Management</h1>
       </div>
       <div className="flex flex-col h-full bg-[#d1e6b2] p-6">
         {user && (
