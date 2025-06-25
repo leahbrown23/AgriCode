@@ -12,6 +12,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
   const [cropTypes, setCropTypes] = useState("")
   const [size, setSize] = useState("")
   const [hasLivestock, setHasLivestock] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
@@ -43,6 +44,11 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
     fetchProfileAndFarm()
   }, [token])
 
+  const showSuccess = (message) => {
+    setSuccessMessage(message)
+    setTimeout(() => setSuccessMessage(""), 3000)
+  }
+
   const handleAddFarm = async () => {
     try {
       await api.post("/api/farm/", {
@@ -53,8 +59,8 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         has_livestock: hasLivestock === "yes",
       })
 
-      alert("Farm added successfully!")
       setFarmExists(true)
+      showSuccess("Farm added successfully!")
     } catch (err) {
       console.error(err)
       alert("Error adding farm: " + JSON.stringify(err.response?.data || err))
@@ -71,7 +77,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         has_livestock: hasLivestock === "yes",
       })
 
-      alert("Farm updated successfully!")
+      showSuccess("Farm updated successfully!")
     } catch (err) {
       console.error(err)
       alert("Error updating farm: " + JSON.stringify(err.response?.data || err))
@@ -92,6 +98,24 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             Logged in as: <strong>{user.email}</strong>
           </div>
         )}
+
+        {/* Success message box */}
+        {successMessage && (
+          <div
+            className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4"
+            role="alert"
+          >
+            <svg
+              className="fill-current w-5 h-5 mr-2"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+            >
+              <path d="M10 15a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0-10a1 1 0 00-1 1v4a1 1 0 002 0V6a1 1 0 00-1-1zm0-3a9 9 0 100 18 9 9 0 000-18z" />
+            </svg>
+            <span className="block sm:inline">{successMessage}</span>
+          </div>
+        )}
+
         <div className="w-full space-y-3">
           <input
             type="text"
