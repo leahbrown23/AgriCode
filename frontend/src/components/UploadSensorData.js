@@ -1,8 +1,19 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { ArrowLeft, Upload, Home, User, Menu } from "lucide-react"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function UploadSensorData({ onBackClick, onHomeClick, onProfileClick, onMenuClick }) {
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (loading) return <LoadingSpinner />
+
   return (
     <div className="flex flex-col h-full pb-12">
       {/* Top Header */}

@@ -76,7 +76,7 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
         </div>
 
         {/* BOTTOM BUTTONS */}
-        <div className="space-y-2 pt-2">
+        <div className="space-y-2 pt-0">
           <button
             onClick={onViewSensorClick}
             className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
