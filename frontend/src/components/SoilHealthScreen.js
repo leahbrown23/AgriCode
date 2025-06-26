@@ -15,7 +15,8 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
   if (loading) return <LoadingSpinner />
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto pb-20">
+    <div className="flex flex-col h-full pb-12">
+      {/* Fixed Header */}
       <div className="p-4 bg-white flex items-center">
         <button onClick={onBackClick} className="mr-2">
           <ArrowLeft className="h-5 w-5" />
@@ -23,7 +24,8 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
         <h1 className="text-lg font-semibold flex-1 text-center">Soil Health</h1>
       </div>
 
-      <div className="flex-1 p-4 space-y-6 bg-[#d1e6b2]">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-6 space-y-6">
 
         {/* TOP METRICS SECTION */}
         <div className="bg-white rounded shadow p-4">
@@ -46,12 +48,12 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
           </div>
         </div>
 
-        {/* STATUS MESAGE */}
+        {/* STATUS MESSAGE */}
         <div className="bg-white p-4 rounded shadow text-center text-green-700 font-semibold">
           No urgent issues
         </div>
 
-        {/* REC SECTION */}
+        {/* RECOMMENDATIONS */}
         <div className="bg-white p-4 rounded shadow">
           <h2 className="text-lg font-semibold mb-2">Recommendations</h2>
           <ul className="space-y-1 text-sm">
@@ -67,7 +69,7 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
           </ul>
         </div>
 
-        {/* SOIL TRENDS SECTION */}
+        {/* SOIL TRENDS */}
         <div className="bg-white p-4 rounded shadow">
           <h2 className="text-lg font-semibold mb-2">Soil Trends</h2>
           <div className="bg-[#f9f3e3] h-40 rounded flex items-center justify-center">
@@ -76,7 +78,7 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
         </div>
 
         {/* BOTTOM BUTTONS */}
-        <div className="space-y-2 pt-0">
+        <div className="space-y-2">
           <button
             onClick={onViewSensorClick}
             className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
@@ -91,6 +93,7 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
           </button>
         </div>
 
+        <div className="h-0" /> {/* Spacer */}
       </div>
     </div>
   )
