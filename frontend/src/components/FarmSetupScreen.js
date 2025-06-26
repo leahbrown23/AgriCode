@@ -15,6 +15,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
   const [hasLivestock, setHasLivestock] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const [loading, setLoading] = useState(true)
+  const [favoriteThreads, setFavoriteThreads] = useState([])
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
@@ -47,6 +48,26 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
 
     fetchProfileAndFarm()
   }, [token])
+
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      const stored = localStorage.getItem("favorites")
+      const favoriteIds = stored ? JSON.parse(stored) : []
+
+      if (favoriteIds.length > 0) {
+        try {
+          const res = await api.get("/forum/threads/")
+          const allThreads = res.data.results || []
+          const filtered = allThreads.filter((t) => favoriteIds.includes(t.id))
+          setFavoriteThreads(filtered)
+        } catch (err) {
+          console.error("Error fetching favorite threads:", err)
+        }
+      }
+    }
+
+    fetchFavorites()
+  }, [])
 
   const showSuccess = (message) => {
     setSuccessMessage(message)
@@ -98,14 +119,27 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         </button>
         <h1 className="text-lg font-semibold flex-1 text-center">User Management</h1>
       </div>
-      <div className="flex flex-col h-full bg-[#d1e6b2] p-6">
+
+      <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-6">
         {user && (
-          <div className="text-sm mb-4 text-right text-gray-700">
-            Logged in as: <strong>{user.email}</strong>
-          </div>
+          <>
+            <h2 className="text-md font-semibold mb-1 text-gray-800">User Details</h2>
+            <div className="bg-white rounded shadow p-4 mb-6 text-sm text-gray-800 space-y-1">
+              <div>
+                <span className="font-medium">Name:</span> {user.first_name} {user.last_name}
+              </div>
+              <div>
+                <span className="font-medium">Email:</span> {user.email}
+              </div>
+              {user.phone && (
+                <div>
+                  <span className="font-medium">Phone:</span> {user.phone}
+                </div>
+              )}
+            </div>
+          </>
         )}
 
-        {/* Success message box */}
         {successMessage && (
           <div
             className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4"
@@ -123,6 +157,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         )}
 
         <div className="w-full space-y-3">
+          <h2 className="text-md font-semibold mb-1 text-gray-800">Farm Details</h2>
           <input
             type="text"
             placeholder="Farm Name"
@@ -156,7 +191,9 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             onChange={(e) => setHasLivestock(e.target.value)}
             className="w-full bg-white border border-gray-300 p-2 rounded appearance-none"
           >
-            <option value="" disabled>Livestock</option>
+            <option value="" disabled>
+              Livestock
+            </option>
             <option value="yes">Yes I have livestock</option>
             <option value="no">No I do not have livestock</option>
           </select>
@@ -189,6 +226,26 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             Back
           </button>
         </div>
+
+        <div className="mt-8">
+          <h2 className="text-md font-semibold mb-1 text-gray-800">Favourited Threads</h2>
+          <div className="space-y-3">
+            {favoriteThreads.length === 0 ? (
+              <div className="text-sm text-gray-600">No favourites yet.</div>
+            ) : (
+              favoriteThreads.map((thread) => (
+                <div key={thread.id} className="bg-white rounded shadow p-3">
+                  <div className="font-semibold text-sm">{thread.title}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {thread.replies_count ?? 0} replies • {thread.views_count ?? 0} views
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="h-6" />
       </div>
     </div>
   )

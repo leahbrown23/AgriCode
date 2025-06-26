@@ -3,6 +3,7 @@
 import { ArrowLeft } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function CropSetupScreen({ onBackClick }) {
   const [plotNumber, setPlotNumber] = useState("")
@@ -10,6 +11,7 @@ export default function CropSetupScreen({ onBackClick }) {
   const [cropVariety, setCropVariety] = useState("")
   const [user, setUser] = useState(null)
   const [successMessage, setSuccessMessage] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -18,6 +20,8 @@ export default function CropSetupScreen({ onBackClick }) {
         setUser(res.data)
       } catch (err) {
         console.error("Failed to load user profile:", err)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -42,13 +46,14 @@ export default function CropSetupScreen({ onBackClick }) {
       setCropType("")
       setCropVariety("")
 
-      // Hide success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
       console.error(err)
       alert("Error adding crop: " + JSON.stringify(err.response?.data || err))
     }
   }
+
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="flex flex-col h-full pb-12">
@@ -65,7 +70,6 @@ export default function CropSetupScreen({ onBackClick }) {
           </div>
         )}
 
-        {/* Success Message */}
         {successMessage && (
           <div
             className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4"
