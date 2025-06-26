@@ -26,24 +26,26 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
   <div className="flex-1 p-4 space-y-6 bg-[#d1e6b2]">
     
     {/* TOP METRICS SECTION */}
-    <div className="bg-white p-4 rounded shadow grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div className="col-span-2 flex flex-col items-center justify-center">
-        <p className="text-sm">SOIL SCORE (i)</p>
-        <div className="text-5xl font-bold text-green-700">87</div>
-      </div>
-      <div className="flex flex-col items-center justify-center">
-        <p className="text-sm">Moisture</p>
-        <p className="text-xl font-semibold">6.7</p>
-      </div>
-      <div className="flex flex-col items-center justify-center">
-        <p className="text-sm">Nitrogen</p>
-        <p className="text-xl font-semibold">35 ppm</p>
-      </div>
-      <div className="flex flex-col items-center justify-center">
-        <p className="text-sm">Phosphorus</p>
-        <p className="text-xl font-semibold">20 ppm</p>
-      </div>
+<div className="bg-white rounded shadow p-4">
+  <p className="text-center text-sm mb-1">SOIL SCORE (i)</p>
+  <p className="text-center text-5xl font-bold text-green-700 mb-4">87</p>
+
+  <div className="grid grid-cols-2 gap-y-2 text-center">
+    <div>
+      <p className="text-sm">Moisture</p>
+      <p className="text-lg font-semibold">6.7</p>
     </div>
+    <div>
+      <p className="text-sm">Nitrogen</p>
+      <p className="text-lg font-semibold">35 ppm</p>
+    </div>
+    <div className="col-span-2">
+      <p className="text-sm">Phosphorus</p>
+      <p className="text-lg font-semibold">20 ppm</p>
+    </div>
+  </div>
+</div>
+
 
     {/* STATUS MESAGE */}
     <div className="bg-white p-4 rounded shadow text-center text-green-700 font-semibold">

@@ -3,6 +3,7 @@
 import { ArrowLeft } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
   const [user, setUser] = useState(null)
@@ -13,6 +14,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
   const [size, setSize] = useState("")
   const [hasLivestock, setHasLivestock] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
+  const [loading, setLoading] = useState(true)
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
@@ -38,6 +40,8 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         } else {
           console.error("Failed to fetch profile or farm:", error)
         }
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -83,6 +87,8 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
       alert("Error updating farm: " + JSON.stringify(err.response?.data || err))
     }
   }
+
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="flex flex-col h-full pb-12">
