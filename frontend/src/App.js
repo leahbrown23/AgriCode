@@ -15,7 +15,7 @@ import RecommendationsScreen from "./components/RecommendationsScreen"
 import RegisterForm from "./components/RegisterForm"
 import SoilHealthScreen from "./components/SoilHealthScreen"
 import ThreadViewScreen from "./components/ThreadViewScreen"
-import UploadSensorData from "./components/UploadSensorData"; // ✅ ADD THIS LINE
+import UploadSensorData from "./components/UploadSensorData";
 import UserProfileScreen from "./components/UserProfileScreen"
 import ViewSensorData from "./components/ViewSensorData"
 
@@ -142,12 +142,19 @@ function App() {
             onAddCropsClick={() => setCurrentScreen("cropSetup")}
           />
         )
+        
       case "cropSetup":
-        return (
-          <CropSetupScreen
-            onBackClick={() => setCurrentScreen("farmSetup")}
-          />
-        )
+  return (
+    <CropSetupScreen
+      onBackClick={() => setCurrentScreen("farmSetup")}
+      onHomeClick={() => setCurrentScreen("dashboard")}
+      onProfileClick={() => setCurrentScreen("farmSetup")}
+      onMenuClick={toggleMenu}  // ✅ Pass the actual function
+    />
+  );
+
+
+
       case "viewSensorData":
         return (
           <ViewSensorData
@@ -157,7 +164,7 @@ function App() {
             onMenuClick={() => setIsMenuOpen(true)}
           />
         )
-      case "uploadSensorData": // ✅ ADD THIS CASE
+      case "uploadSensorData": 
         return (
           <UploadSensorData
             onBackClick={() => setCurrentScreen("soilHealth")}
