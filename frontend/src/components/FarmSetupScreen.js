@@ -221,10 +221,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
               </button>
             </>
           )}
-
-          <button onClick={onBackClick} className="text-sm text-gray-700 hover:underline">
-            Back
-          </button>
+          
         </div>
 
         <div className="mt-8">
