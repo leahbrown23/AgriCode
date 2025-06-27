@@ -13,9 +13,11 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
   const [cropTypes, setCropTypes] = useState("")
   const [size, setSize] = useState("")
   const [hasLivestock, setHasLivestock] = useState("")
+  const [initialFarmData, setInitialFarmData] = useState({})
   const [successMessage, setSuccessMessage] = useState("")
   const [loading, setLoading] = useState(true)
   const [favoriteThreads, setFavoriteThreads] = useState([])
+  const [isEditing, setIsEditing] = useState(false)
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
@@ -35,6 +37,13 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         setCropTypes(farmData.crop_types || "")
         setSize(farmData.size || "")
         setHasLivestock(farmData.has_livestock ? "yes" : "no")
+        setInitialFarmData({
+          farm_name: farmData.farm_name || "",
+          location: farmData.location || "",
+          crop_types: farmData.crop_types || "",
+          size: farmData.size || "",
+          has_livestock: farmData.has_livestock ? "yes" : "no",
+        })
       } catch (error) {
         if (error.response?.status === 404) {
           setFarmExists(false)
@@ -102,11 +111,28 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         has_livestock: hasLivestock === "yes",
       })
 
+      setInitialFarmData({
+        farm_name: farmName,
+        location,
+        crop_types: cropTypes,
+        size,
+        has_livestock: hasLivestock,
+      })
       showSuccess("Farm updated successfully!")
+      setIsEditing(false)
     } catch (err) {
       console.error(err)
       alert("Error updating farm: " + JSON.stringify(err.response?.data || err))
     }
+  }
+
+  const handleCancelEdit = () => {
+    setFarmName(initialFarmData.farm_name)
+    setLocation(initialFarmData.location)
+    setCropTypes(initialFarmData.crop_types)
+    setSize(initialFarmData.size)
+    setHasLivestock(initialFarmData.has_livestock)
+    setIsEditing(false)
   }
 
   if (loading) return <LoadingSpinner />
@@ -141,15 +167,8 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
         )}
 
         {successMessage && (
-          <div
-            className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4"
-            role="alert"
-          >
-            <svg
-              className="fill-current w-5 h-5 mr-2"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-            >
+          <div className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+            <svg className="fill-current w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
               <path d="M10 15a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0-10a1 1 0 00-1 1v4a1 1 0 002 0V6a1 1 0 00-1-1zm0-3a9 9 0 100 18 9 9 0 000-18z" />
             </svg>
             <span className="block sm:inline">{successMessage}</span>
@@ -164,6 +183,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             className="w-full bg-white border border-gray-300 p-2 rounded"
             value={farmName}
             onChange={(e) => setFarmName(e.target.value)}
+            readOnly={!isEditing}
           />
           <input
             type="text"
@@ -171,6 +191,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             className="w-full bg-white border border-gray-300 p-2 rounded"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
+            readOnly={!isEditing}
           />
           <input
             type="text"
@@ -178,6 +199,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             className="w-full bg-white border border-gray-300 p-2 rounded"
             value={cropTypes}
             onChange={(e) => setCropTypes(e.target.value)}
+            readOnly={!isEditing}
           />
           <input
             type="number"
@@ -185,8 +207,10 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             className="w-full bg-white border border-gray-300 p-2 rounded"
             value={size}
             onChange={(e) => setSize(e.target.value)}
+            readOnly={!isEditing}
           />
           <select
+            disabled={!isEditing}
             value={hasLivestock}
             onChange={(e) => setHasLivestock(e.target.value)}
             className="w-full bg-white border border-gray-300 p-2 rounded appearance-none"
@@ -207,21 +231,42 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick }) {
             </button>
           ) : (
             <>
-              <button
-                onClick={handleUpdateFarm}
-                className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2"
-              >
-                Update Farm
-              </button>
-              <button
-                onClick={onAddCropsClick}
-                className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
-              >
-                Add Crops
-              </button>
+              {!isEditing ? (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white w-full py-2 rounded mt-2"
+                >
+                  Edit
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleUpdateFarm}
+                    className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="bg-gray-400 hover:bg-gray-500 text-white w-full py-2 rounded"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              
+              {!isEditing && (
+  <button
+    onClick={onAddCropsClick}
+    className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
+  >
+    Add Crops
+  </button>
+)}
+
+
             </>
           )}
-          
         </div>
 
         <div className="mt-8">
