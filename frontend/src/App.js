@@ -186,6 +186,7 @@ function App() {
     "discussionForum",
     "threadView",
     "uploadSensorData",
+    "cropSetup",
   ].includes(currentScreen)
 
   return (

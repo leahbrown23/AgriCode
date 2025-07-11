@@ -96,24 +96,24 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
           className="w-full bg-white border border-gray-300 p-2 rounded"
         />
         <select
-  value={cropType}
-  onChange={(e) => setCropType(e.target.value)}
-  className="w-full bg-white border border-gray-300 p-2 rounded"
->
-  <option value="" disabled>Select Crop Type</option>
-  <option value="Maize">Maize</option>
-  <option value="Wheat">Wheat</option>
-  <option value="Rice">Rice</option>
-  <option value="Barley">Barley</option>
-  <option value="Soybean">Soybean</option>
-  <option value="Groundnut">Groundnut</option>
-  <option value="Potato">Potato</option>
-  <option value="Tomato">Tomato</option>
-  <option value="Onion">Onion</option>
-  <option value="Carrot">Carrot</option>
-  <option value="Cabbage">Cabbage</option>
-  <option value="Spinach">Spinach</option>
-</select>
+          value={cropType}
+          onChange={(e) => setCropType(e.target.value)}
+          className="w-full bg-white border border-gray-300 p-2 rounded"
+        >
+          <option value="" disabled>Select Crop Type</option>
+          <option value="Maize">Maize</option>
+          <option value="Wheat">Wheat</option>
+          <option value="Rice">Rice</option>
+          <option value="Barley">Barley</option>
+          <option value="Soybean">Soybean</option>
+          <option value="Groundnut">Groundnut</option>
+          <option value="Potato">Potato</option>
+          <option value="Tomato">Tomato</option>
+          <option value="Onion">Onion</option>
+          <option value="Carrot">Carrot</option>
+          <option value="Cabbage">Cabbage</option>
+          <option value="Spinach">Spinach</option>
+        </select>
 
         <input
           type="text"
@@ -122,12 +122,14 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
           onChange={(e) => setCropVariety(e.target.value)}
           className="w-full bg-white border border-gray-300 p-2 rounded"
         />
+
         <button
           onClick={handleAddCrop}
           className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2"
         >
           Add Crop
         </button>
+
         <button
           onClick={onBackClick}
           className="text-sm text-gray-700 hover:underline"
@@ -144,7 +146,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
         <button onClick={onProfileClick} className="flex flex-col items-center justify-center w-1/3">
           <User size={20} />
         </button>
-        <button onClick={() => onMenuClick(prev => !prev)} className="flex flex-col items-center justify-center w-1/3">
+        <button onClick={onMenuClick} className="flex flex-col items-center justify-center w-1/3">
           <Menu size={20} />
         </button>
       </div>
