@@ -24,7 +24,6 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState("login")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false)
-  const [isUserProfileExpanded, setIsUserProfileExpanded] = useState(false)
   const menuRef = useRef(null)
   const menuButtonRef = useRef(null)
   const [selectedThreadId, setSelectedThreadId] = useState(null)
@@ -58,7 +57,6 @@ function App() {
   useEffect(() => {
     if (!isMenuOpen) {
       setIsDashboardExpanded(false)
-      setIsUserProfileExpanded(false)
     }
   }, [isMenuOpen])
 
@@ -265,26 +263,15 @@ function App() {
                 )}
 
                 <button
-                  onClick={() => setIsUserProfileExpanded(!isUserProfileExpanded)}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"
-                >
-                  <span>User Profile</span>
-                  {isUserProfileExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </button>
+  onClick={() => {
+    setCurrentScreen("farmSetup")
+    setIsMenuOpen(false)
+  }}
+  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+>
+  User Management
+</button>
 
-                {isUserProfileExpanded && (
-                  <div className="pl-4">
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("farmSetup")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Farm Setup
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>
