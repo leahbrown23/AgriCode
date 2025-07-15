@@ -7,7 +7,6 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [farmName, setFarmName] = useState("")
   const [phone, setPhone] = useState("")
   const [showMessage, setShowMessage] = useState(false)
 
@@ -19,11 +18,9 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
         password: password,
         first_name: firstName,
         last_name: lastName,
-        farm_name: farmName,
         phone_number: phone
       }
 
-      // Debug: Log the payload being sent
       console.log("Registration payload:", payload)
 
       const res = await fetch("http://localhost:8000/api/register/", {
@@ -34,14 +31,19 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
         body: JSON.stringify(payload)
       })
 
-      const data = await res.json()
-      
-      // Debug: Log the response
+      const responseText = await res.text()
+      let data
+
+      try {
+        data = JSON.parse(responseText)
+      } catch (err) {
+        console.error("Non-JSON response from backend:", responseText)
+        throw new Error("Unexpected server response. Check if the backend is returning valid JSON.")
+      }
+
       console.log("Registration response:", data)
 
       if (!res.ok) {
-        console.error("Registration failed with status:", res.status)
-        console.error("Error response:", data)
         throw new Error(data.detail || data.message || JSON.stringify(data) || "Registration failed")
       }
 
@@ -65,13 +67,11 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
       localStorage.setItem("accessToken", loginData.access)
       localStorage.setItem("refreshToken", loginData.refresh)
 
-      // Show success message instead of alert
       setShowMessage(true)
-      
-      // Redirect after showing message
+
       setTimeout(() => {
         if (onRegisterClick) onRegisterClick()
-      }, 2000) // 2 second delay to show the message
+      }, 2000)
     } catch (err) {
       console.error("Registration/Login error:", err)
       alert("Error: " + err.message)
@@ -83,7 +83,6 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
     if (onRegisterClick) onRegisterClick()
   }
 
-  // Reusable MessageBox component matching your app's design
   const MessageBox = ({ message, onClose }) => (
     <div
       className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
@@ -101,12 +100,8 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
               </svg>
             </div>
           </div>
-          <div className="text-lg font-semibold mb-3 text-green-700">
-            Success
-          </div>
-          <p className="text-gray-800 text-sm leading-relaxed">
-            {message}
-          </p>
+          <div className="text-lg font-semibold mb-3 text-green-700">Success</div>
+          <p className="text-gray-800 text-sm leading-relaxed">{message}</p>
         </div>
         <button
           onClick={onClose}
@@ -122,66 +117,60 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
     <div className="flex flex-col h-full bg-[#d1e6b2] p-6">
       <h2 className="text-right text-[#2a9d4a] font-medium mb-4">Create an account</h2>
       <div className="w-full space-y-3">
-        <input 
-          type="text" 
-          placeholder="First Name" 
-          className="w-full bg-white border border-gray-300 p-2 rounded" 
-          value={firstName} 
-          onChange={(e) => setFirstName(e.target.value)} 
+        <input
+          type="text"
+          placeholder="First Name"
+          className="w-full bg-white border border-gray-300 p-2 rounded"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
           required
         />
-        <input 
-          type="text" 
-          placeholder="Last Name" 
-          className="w-full bg-white border border-gray-300 p-2 rounded" 
-          value={lastName} 
-          onChange={(e) => setLastName(e.target.value)} 
+        <input
+          type="text"
+          placeholder="Last Name"
+          className="w-full bg-white border border-gray-300 p-2 rounded"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
           required
         />
-        <input 
-          type="email" 
-          placeholder="Email" 
-          className="w-full bg-white border border-gray-300 p-2 rounded" 
-          value={email} 
-          onChange={(e) => setEmail(e.target.value)} 
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full bg-white border border-gray-300 p-2 rounded"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           required
         />
-        <input 
-          type="password" 
-          placeholder="Password" 
-          className="w-full bg-white border border-gray-300 p-2 rounded" 
-          value={password} 
-          onChange={(e) => setPassword(e.target.value)} 
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full bg-white border border-gray-300 p-2 rounded"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <input 
-          type="tel" 
-          placeholder="Phone Number" 
-          className="w-full bg-white border border-gray-300 p-2 rounded" 
-          value={phone} 
-          onChange={(e) => setPhone(e.target.value)} 
+        <input
+          type="tel"
+          placeholder="Phone Number"
+          className="w-full bg-white border border-gray-300 p-2 rounded"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
         />
-        <input 
-          type="text" 
-          placeholder="Farm Name" 
-          className="w-full bg-white border border-gray-300 p-2 rounded" 
-          value={farmName} 
-          onChange={(e) => setFarmName(e.target.value)} 
-        />
-        <button 
-          onClick={handleRegister} 
+
+        <button
+          onClick={handleRegister}
           className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2"
         >
           Register
         </button>
-        <button 
-          onClick={onBackClick} 
+        <button
+          onClick={onBackClick}
           className="text-sm text-gray-700 hover:underline"
         >
           Back
         </button>
       </div>
-      
+
       {showMessage && (
         <MessageBox
           message="Registration successful! Redirecting to dashboard..."

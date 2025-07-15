@@ -16,6 +16,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
   const [successMessage, setSuccessMessage] = useState("")
   const [loading, setLoading] = useState(true)
   const [favoriteThreads, setFavoriteThreads] = useState([])
+  const [isEditing, setIsEditing] = useState(false)
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
@@ -35,9 +36,11 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
         setCropTypes(farmData.crop_types || "")
         setSize(farmData.size || "")
         setHasLivestock(farmData.has_livestock ? "yes" : "no")
+        setIsEditing(false) // prevent accidental editing
       } catch (error) {
         if (error.response?.status === 404) {
           setFarmExists(false)
+          setIsEditing(true) // ✅ Allow editing if no farm exists
         } else {
           console.error("Failed to fetch profile or farm:", error)
         }
@@ -85,6 +88,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
       })
 
       setFarmExists(true)
+      setIsEditing(false) // lock form
       showSuccess("Farm added successfully!")
     } catch (err) {
       console.error(err)
@@ -92,7 +96,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
     }
   }
 
-  const handleUpdateFarm = async () => {
+  const handleUpdateFarmAndExitEditMode = async () => {
     try {
       await api.put("/api/farm/", {
         farm_name: farmName,
@@ -103,6 +107,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
       })
 
       showSuccess("Farm updated successfully!")
+      setIsEditing(false)
     } catch (err) {
       console.error(err)
       alert("Error updating farm: " + JSON.stringify(err.response?.data || err))
@@ -143,11 +148,11 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
 
         <div className="w-full space-y-3">
           <h2 className="text-md font-semibold mb-1 text-gray-800">Farm Details</h2>
-          <input type="text" placeholder="Farm Name" className="w-full bg-white border border-gray-300 p-2 rounded" value={farmName} onChange={(e) => setFarmName(e.target.value)} />
-          <input type="text" placeholder="Location" className="w-full bg-white border border-gray-300 p-2 rounded" value={location} onChange={(e) => setLocation(e.target.value)} />
-          <input type="text" placeholder="Crop Types" className="w-full bg-white border border-gray-300 p-2 rounded" value={cropTypes} onChange={(e) => setCropTypes(e.target.value)} />
-          <input type="number" placeholder="Size (in hectares)" className="w-full bg-white border border-gray-300 p-2 rounded" value={size} onChange={(e) => setSize(e.target.value)} />
-          <select value={hasLivestock} onChange={(e) => setHasLivestock(e.target.value)} className="w-full bg-white border border-gray-300 p-2 rounded appearance-none">
+          <input type="text" placeholder="Farm Name" className="w-full bg-white border border-gray-300 p-2 rounded" value={farmName} onChange={(e) => setFarmName(e.target.value)} readOnly={!isEditing} />
+          <input type="text" placeholder="Location" className="w-full bg-white border border-gray-300 p-2 rounded" value={location} onChange={(e) => setLocation(e.target.value)} readOnly={!isEditing} />
+          <input type="text" placeholder="Crop Types" className="w-full bg-white border border-gray-300 p-2 rounded" value={cropTypes} onChange={(e) => setCropTypes(e.target.value)} readOnly={!isEditing} />
+          <input type="number" placeholder="Size (in hectares)" className="w-full bg-white border border-gray-300 p-2 rounded" value={size} onChange={(e) => setSize(e.target.value)} readOnly={!isEditing} />
+          <select value={hasLivestock} onChange={(e) => setHasLivestock(e.target.value)} disabled={!isEditing} className="w-full bg-white border border-gray-300 p-2 rounded appearance-none">
             <option value="" disabled>Livestock</option>
             <option value="yes">Yes I have livestock</option>
             <option value="no">No I do not have livestock</option>
@@ -157,7 +162,11 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
             <button onClick={handleAddFarm} className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2">Add Farm</button>
           ) : (
             <>
-              <button onClick={handleUpdateFarm} className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2">Update Farm</button>
+              {!isEditing ? (
+                <button onClick={() => setIsEditing(true)} className="bg-blue-500 hover:bg-blue-600 text-white w-full py-2 rounded mt-2">Edit Farm</button>
+              ) : (
+                <button onClick={handleUpdateFarmAndExitEditMode} className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2">Save Farm</button>
+              )}
               <button onClick={onAddCropsClick} className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded">Add Crops</button>
             </>
           )}
