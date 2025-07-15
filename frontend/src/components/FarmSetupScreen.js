@@ -17,6 +17,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
   const [loading, setLoading] = useState(true)
   const [favoriteThreads, setFavoriteThreads] = useState([])
   const [isEditing, setIsEditing] = useState(false)
+  const [loadingFavorites, setLoadingFavorites] = useState(true) // 🆕 New state for spinner
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
@@ -36,11 +37,11 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
         setCropTypes(farmData.crop_types || "")
         setSize(farmData.size || "")
         setHasLivestock(farmData.has_livestock ? "yes" : "no")
-        setIsEditing(false) // prevent accidental editing
+        setIsEditing(false)
       } catch (error) {
         if (error.response?.status === 404) {
           setFarmExists(false)
-          setIsEditing(true) // ✅ Allow editing if no farm exists
+          setIsEditing(true)
         } else {
           console.error("Failed to fetch profile or farm:", error)
         }
@@ -57,6 +58,8 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
       const stored = localStorage.getItem("favorites")
       const favoriteIds = stored ? JSON.parse(stored) : []
 
+      setLoadingFavorites(true) // 🆕 Start loading spinner
+
       if (favoriteIds.length > 0) {
         try {
           const res = await api.get("/forum/threads/")
@@ -67,6 +70,8 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
           console.error("Error fetching favorite threads:", err)
         }
       }
+
+      setLoadingFavorites(false) // 🆕 End loading spinner
     }
 
     fetchFavorites()
@@ -88,7 +93,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
       })
 
       setFarmExists(true)
-      setIsEditing(false) // lock form
+      setIsEditing(false)
       showSuccess("Farm added successfully!")
     } catch (err) {
       console.error(err)
@@ -176,7 +181,9 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
         <div className="mt-8">
           <h2 className="text-md font-semibold mb-1 text-gray-800">Favourited Threads</h2>
           <div className="space-y-3">
-            {favoriteThreads.length === 0 ? (
+            {loadingFavorites ? (
+              <LoadingSpinner />
+            ) : favoriteThreads.length === 0 ? (
               <div className="text-sm text-gray-600">No favourites yet.</div>
             ) : (
               favoriteThreads.map((thread) => (
