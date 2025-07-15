@@ -17,12 +17,14 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   const LIMIT = 10
 
   useEffect(() => {
-    const loadAll = async () => {
-      await fetchThread()
-      await resetMessages()
-      setTimeout(() => setScreenLoading(false), 1000)
+    if (threadId) {
+      const loadAll = async () => {
+        await fetchThread()
+        await resetMessages()
+        setTimeout(() => setScreenLoading(false), 1000)
+      }
+      loadAll()
     }
-    loadAll()
   }, [threadId])
 
   useEffect(() => {
@@ -32,11 +34,14 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   }, [messages])
 
   const fetchThread = async () => {
+    if (!threadId) return
+    
     try {
       const res = await api.get(`/forum/threads/${threadId}/`)
       setThread(res.data)
     } catch (err) {
       console.error("Error fetching thread:", err)
+      setError("Failed to load thread")
     }
   }
 
@@ -48,6 +53,8 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   }
 
   const loadOlderMessages = async (offset = nextOffset) => {
+    if (!threadId) return
+    
     try {
       const container = document.querySelector("#chat-scroll-container")
       const prevScrollHeight = container?.scrollHeight || 0
@@ -83,11 +90,12 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
       }, 50)
     } catch (err) {
       console.error("Error loading older messages:", err)
+      setError("Failed to load messages")
     }
   }
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() || !threadId) return
     setLoading(true)
     setError(null)
 
@@ -106,7 +114,30 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
     }
   }
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+
   if (screenLoading) return <LoadingSpinner />
+
+  if (!threadId) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="sticky top-0 z-10 p-4 bg-white flex items-center">
+          <button onClick={onBackClick} className="mr-2">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-lg font-semibold flex-1 text-center">Thread</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-500">No thread selected</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -122,7 +153,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
       {thread && (
         <div className="bg-[#f0fdf4] px-4 py-3 border-b border-green-300">
           <h2 className="text-md font-semibold">{thread.title}</h2>
-          <p className="text-xs text-gray-500">{thread.message_count} replies</p>
+          <p className="text-xs text-gray-500">{thread.message_count ?? 0} replies</p>
         </div>
       )}
 
@@ -131,7 +162,7 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         id="chat-scroll-container"
         className="flex-1 overflow-y-auto px-4 pt-2 pb-28 space-y-3 bg-[#f9f9f9] min-h-0"
       >
-        {hasMore && (
+        {hasMore && messages.length > 0 && (
           <div className="text-center">
             <button
               onClick={() => loadOlderMessages()}
@@ -143,7 +174,9 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         )}
 
         {messages.length === 0 ? (
-          <p className="text-center text-gray-400 mt-4">No messages yet</p>
+          <p className="text-center text-gray-400 mt-4">
+            {error ? error : "No messages yet"}
+          </p>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className="bg-white p-3 rounded-lg shadow-sm">
@@ -166,15 +199,17 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
+          onKeyPress={handleKeyPress}
           placeholder="Type a message..."
           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          disabled={loading}
         />
         <button
           onClick={handleSendMessage}
-          disabled={loading}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition"
+          disabled={loading || !newMessage.trim()}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Send
+          {loading ? "..." : "Send"}
         </button>
       </div>
 
