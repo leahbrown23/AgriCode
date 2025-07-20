@@ -1,4 +1,4 @@
-// Updated App.js
+// Updated App.js with 'Management' collapsible section
 "use client"
 
 import axios from "axios"
@@ -24,6 +24,7 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState("login")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false)
+  const [isManagementExpanded, setIsManagementExpanded] = useState(false)
   const menuRef = useRef(null)
   const menuButtonRef = useRef(null)
   const [selectedThreadId, setSelectedThreadId] = useState(null)
@@ -57,6 +58,7 @@ function App() {
   useEffect(() => {
     if (!isMenuOpen) {
       setIsDashboardExpanded(false)
+      setIsManagementExpanded(false)
     }
   }, [isMenuOpen])
 
@@ -137,7 +139,15 @@ function App() {
                     <button onClick={() => { setCurrentScreen("discussionForum"); setIsMenuOpen(false) }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Discussion</button>
                   </div>
                 )}
-                <button onClick={() => { setCurrentScreen("farmSetup"); setIsMenuOpen(false) }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">User Management</button>
+                <button onClick={() => setIsManagementExpanded(!isManagementExpanded)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between">
+                  <span>Management</span> {isManagementExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+                {isManagementExpanded && (
+                  <div className="pl-4">
+                    <button onClick={() => { setCurrentScreen("farmSetup"); setIsMenuOpen(false) }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">User Management</button>
+                    <button onClick={() => { setCurrentScreen("cropSetup"); setIsMenuOpen(false) }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Crop Management</button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
