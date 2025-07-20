@@ -1,22 +1,97 @@
 "use client"
 
+import { ArrowLeft, Home, Info, Menu, User } from "lucide-react"
 import { useEffect, useState } from "react"
-import { ArrowLeft } from "lucide-react"
+import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
-export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUploadSensorClick }) {
+export default function SoilHealthScreen({
+  onBackClick,
+  onViewSensorClick,
+  onUploadSensorClick,
+  onHomeClick,
+  onProfileClick,
+  onMenuClick,
+}) {
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null)
+  const [soilData, setSoilData] = useState(null)
+  const [plotOptions, setPlotOptions] = useState([])
+  const [selectedPlot, setSelectedPlot] = useState("")
 
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
+
+  // Fetch user profile
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000)
-    return () => clearTimeout(timer)
+    const fetchProfile = async () => {
+      try {
+        const res = await api.get("/api/profile/")
+        setUser(res.data)
+      } catch (err) {
+        console.error("Failed to load user profile:", err)
+      }
+    }
+    fetchProfile()
   }, [])
+
+  // Fetch user plots
+  useEffect(() => {
+    const fetchPlots = async () => {
+      try {
+        const res = await api.get("/api/get-user-plots/", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const uniquePlots = res.data.plots
+        setPlotOptions(uniquePlots)
+        setSelectedPlot(uniquePlots[0] || "")
+      } catch (err) {
+        console.error("Failed to fetch plots", err)
+      }
+    }
+
+    fetchPlots()
+  }, [token])
+
+  // Fetch soil data for selected plot
+  useEffect(() => {
+    const fetchSoilData = async () => {
+      if (!selectedPlot) return
+      try {
+        const res = await api.get(
+          `/api/latest-reading/?plot_number=${selectedPlot}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        )
+        setSoilData(res.data)
+      } catch (err) {
+        console.error("Error fetching soil data", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSoilData()
+  }, [selectedPlot, token])
+
+  const score = soilData ? calculateSoilScore(soilData) : 0
+
+  function calculateSoilScore(data) {
+    const { moisture_level, N, P } = data
+    const score = moisture_level * 0.3 + N * 0.4 + P * 0.3
+    return Math.round(score)
+  }
 
   if (loading) return <LoadingSpinner />
 
   return (
     <div className="flex flex-col h-full pb-12">
-      {/* Fixed Header */}
+      {/* Top Header */}
       <div className="p-4 bg-white flex items-center">
         <button onClick={onBackClick} className="mr-2">
           <ArrowLeft className="h-5 w-5" />
@@ -26,74 +101,118 @@ export default function SoilHealthScreen({ onBackClick, onViewSensorClick, onUpl
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-6 space-y-6">
-
-        {/* TOP METRICS SECTION */}
-        <div className="bg-white rounded shadow p-4">
-          <p className="text-center text-sm mb-1">SOIL SCORE (i)</p>
-          <p className="text-center text-5xl font-bold text-green-700 mb-4">87</p>
-
-          <div className="grid grid-cols-2 gap-y-2 text-center">
-            <div>
-              <p className="text-sm">Moisture</p>
-              <p className="text-lg font-semibold">6.7</p>
-            </div>
-            <div>
-              <p className="text-sm">Nitrogen</p>
-              <p className="text-lg font-semibold">35 ppm</p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-sm">Phosphorus</p>
-              <p className="text-lg font-semibold">20 ppm</p>
-            </div>
-          </div>
-        </div>
-
-        {/* STATUS MESSAGE */}
-        <div className="bg-white p-4 rounded shadow text-center text-green-700 font-semibold">
-          No urgent issues
-        </div>
-
-        {/* RECOMMENDATIONS */}
-        <div className="bg-white p-4 rounded shadow">
-          <h2 className="text-lg font-semibold mb-2">Recommendations</h2>
-          <ul className="space-y-1 text-sm">
-            <li className="flex items-start">
-              ✅ <span className="ml-2">Maintain current pH level</span>
-            </li>
-            <li className="flex items-start">
-              ✅ <span className="ml-2">Soil moisture is adequate, no irrigation needed</span>
-            </li>
-            <li className="flex items-start">
-              ✅ <span className="ml-2">Apply phosphorus fertilizer: 15 kg/ha</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* SOIL TRENDS */}
-        <div className="bg-white p-4 rounded shadow">
-          <h2 className="text-lg font-semibold mb-2">Soil Trends</h2>
-          <div className="bg-[#f9f3e3] h-40 rounded flex items-center justify-center">
-            <div className="text-gray-500 text-sm">Trend graph placeholder</div>
-          </div>
-        </div>
-
-        {/* BOTTOM BUTTONS */}
-        <div className="space-y-2">
-          <button
-            onClick={onViewSensorClick}
-            className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
+        {/* Plot Filter */}
+        <div className="bg-white p-3 rounded shadow">
+          <label className="text-sm font-medium text-gray-700">Select Plot:</label>
+          <select
+            className="mt-1 w-full border border-gray-300 rounded p-2"
+            value={selectedPlot}
+            onChange={(e) => setSelectedPlot(e.target.value)}
           >
-            View Sensor Data
-          </button>
-          <button
-            onClick={onUploadSensorClick}
-            className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded"
-          >
-            Upload Sensor Data
-          </button>
+            {plotOptions.map((plot) => (
+              <option key={plot} value={plot}>
+                Plot {plot}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="h-0" /> {/* Spacer */}
+        {soilData ? (
+          <>
+            {/* Date Updated */}
+            <div className="text-sm text-right text-gray-600">
+              Date last updated:{" "}
+              <strong>{new Date(soilData.timestamp).toLocaleString()}</strong>
+            </div>
+
+            {/* Score Card */}
+            <div className="bg-white rounded shadow p-4">
+              <p className="text-center text-sm mb-1">
+                SOIL SCORE <Info size={12} className="inline ml-1" />
+              </p>
+              <p className="text-center text-5xl font-bold text-green-700 mb-4">{score}</p>
+
+              <div className="grid grid-cols-2 gap-y-2 text-center">
+                <div>
+                  <p className="text-sm">Moisture</p>
+                <p className="text-lg font-semibold">{soilData.moisture_level?.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-sm">Nitrogen</p>
+                  <p className="text-lg font-semibold">{soilData.N?.toFixed(2)} ppm</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm">Phosphorus</p>
+                 <p className="text-lg font-semibold">{soilData.P?.toFixed(2)} ppm</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Message */}
+            <div className="bg-white p-4 rounded shadow text-center text-green-700 font-semibold">
+              No urgent issues
+            </div>
+
+            {/* Recommendations */}
+            <div className="bg-white p-4 rounded shadow">
+              <h2 className="text-lg font-semibold mb-2">Recommendations</h2>
+              <ul className="space-y-1 text-sm">
+                <li className="flex items-start">
+                  ✅ <span className="ml-2">Maintain current pH level</span>
+                </li>
+                <li className="flex items-start">
+                  ✅ <span className="ml-2">Soil moisture is adequate, no irrigation needed</span>
+                </li>
+                <li className="flex items-start">
+                  ✅ <span className="ml-2">Apply phosphorus fertilizer: 15 kg/ha</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Soil Trends */}
+            <div className="bg-white p-4 rounded shadow">
+              <h2 className="text-lg font-semibold mb-2">Soil Trends</h2>
+              <div className="bg-[#f9f3e3] h-40 rounded flex items-center justify-center">
+                <div className="text-gray-500 text-sm">Trend graph placeholder</div>
+              </div>
+            </div>
+
+            {/* Bottom Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={onViewSensorClick}
+                className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
+              >
+                View Sensor Data
+              </button>
+              <button
+                onClick={onUploadSensorClick}
+                className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded"
+              >
+                Upload Sensor Data
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="text-sm text-gray-600">
+            No data available for the selected plot.
+          </div>
+        )}
+
+        <div className="h-2" /> {/* Spacer to prevent content from touching nav */}
+      </div>
+
+      {/* Bottom Nav */}
+      <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
+        <button onClick={onHomeClick} className="flex flex-col items-center justify-center w-1/3">
+          <Home size={20} />
+        </button>
+        <button onClick={onProfileClick} className="flex flex-col items-center justify-center w-1/3">
+          <User size={20} />
+        </button>
+        <button onClick={() => onMenuClick((prev) => !prev)} className="flex flex-col items-center justify-center w-1/3">
+          <Menu size={20} />
+        </button>
       </div>
     </div>
   )

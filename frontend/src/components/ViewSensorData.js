@@ -1,15 +1,43 @@
 "use client"
 
+import { ArrowLeft, FileText, Home, Menu, User } from "lucide-react"
 import { useEffect, useState } from "react"
-import { ArrowLeft, FileText, Home, User, Menu } from "lucide-react"
+import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
 export default function ViewSensorData({ onBackClick, onHomeClick, onProfileClick, onMenuClick }) {
   const [loading, setLoading] = useState(true)
+  const [sensorData, setSensorData] = useState([])
+  const [user, setUser] = useState(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000)
-    return () => clearTimeout(timer)
+    const fetchProfile = async () => {
+      try {
+        const res = await api.get("/api/profile/")
+        setUser(res.data)
+      } catch (err) {
+        console.error("Failed to load user profile:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await api.get("/api/latest-soil-data/")
+        setSensorData(res.data)
+      } catch (error) {
+        console.error("Error fetching data", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
   if (loading) return <LoadingSpinner />
@@ -25,20 +53,19 @@ export default function ViewSensorData({ onBackClick, onHomeClick, onProfileClic
       </div>
 
       {/* Main content */}
-      <div className="flex-1 p-4 space-y-4 bg-[#d1e6b2]">
-        {/* Table Preview */}
+      <div className="flex-1 overflow-auto p-4 space-y-4 bg-[#d1e6b2]">
         <div className="bg-white rounded shadow p-4">
           <div className="flex items-center mb-2">
             <FileText className="w-4 h-4 mr-2 text-gray-500" />
-            <h3 className="text-sm font-medium text-gray-700">Sensor Data</h3>
+            <h3 className="text-sm font-medium text-gray-700">Recent Sensor Data</h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto w-full">
             <table className="min-w-full text-sm text-left text-gray-600">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="px-2 py-1">Soil ID</th>
-                  <th className="px-2 py-1">User ID</th>
-                  <th className="px-2 py-1">pH Level</th>
+                  <th className="px-2 py-1">Sensor ID</th>
+                  <th className="px-2 py-1">Plot No</th>
+                  <th className="px-2 py-1">pH</th>
                   <th className="px-2 py-1">N</th>
                   <th className="px-2 py-1">P</th>
                   <th className="px-2 py-1">K</th>
@@ -47,26 +74,23 @@ export default function ViewSensorData({ onBackClick, onHomeClick, onProfileClic
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="px-2 py-1">1</td>
-                  <td className="px-2 py-1">68</td>
-                  <td className="px-2 py-1">6.59</td>
-                  <td className="px-2 py-1">17.77</td>
-                  <td className="px-2 py-1">3.96</td>
-                  <td className="px-2 py-1">423.16</td>
-                  <td className="px-2 py-1">47.13</td>
-                  <td className="px-2 py-1">[date]</td>
-                </tr>
-                <tr>
-                  <td className="px-2 py-1">2</td>
-                  <td className="px-2 py-1">47</td>
-                  <td className="px-2 py-1">7.05</td>
-                  <td className="px-2 py-1">20.99</td>
-                  <td className="px-2 py-1">7.54</td>
-                  <td className="px-2 py-1">394.11</td>
-                  <td className="px-2 py-1">12.09</td>
-                  <td className="px-2 py-1">[date]</td>
-                </tr>
+                {sensorData.map((row, index) => (
+                  <tr key={index}>
+                    <td className="px-2 py-1">{row.sensor_id}</td>
+                    <td className="px-2 py-1">{row.plot_number}</td>
+                    <td className="px-2 py-1">{row.pH_level}</td>
+                    <td className="px-2 py-1">{row.N}</td>
+                    <td className="px-2 py-1">{row.P}</td>
+                    <td className="px-2 py-1">{row.K}</td>
+                    <td className="px-2 py-1">{row.moisture_level}</td>
+                    <td className="px-2 py-1">{new Date(row.timestamp).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {sensorData.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="text-center py-2 text-gray-500">No sensor data found.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

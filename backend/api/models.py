@@ -32,3 +32,17 @@ class Crop(models.Model):
 
     def __str__(self):
         return f"{self.crop_type} ({self.plot_number})"
+    
+class SoilSensorReading(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    plot_number = models.CharField(max_length=100)
+    sensor_id = models.IntegerField()
+    pH_level = models.FloatField()
+    N = models.FloatField()
+    P = models.FloatField()
+    K = models.FloatField()
+    moisture_level = models.FloatField()
+    timestamp = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.plot_id} - {self.timestamp}"
