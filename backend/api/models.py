@@ -46,3 +46,20 @@ class SoilSensorReading(models.Model):
 
     def __str__(self):
         return f"{self.plot_id} - {self.timestamp}"
+    
+class Plot(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    plot_id = models.CharField(max_length=50)  # Farmer's local plot number
+    unique_plot_key = models.CharField(max_length=100, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    size = models.DecimalField(max_digits=10, decimal_places=2)
+    location = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.unique_plot_key:
+            self.unique_plot_key = f"P{self.plot_id}U{self.user.id}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.plot_id} (User {self.user.id})"

@@ -5,15 +5,18 @@ import traceback
 # Create your views here.
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import generics, permissions
+from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 from .models import CustomUser
 from .serializers import RegisterSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .models import Farm, Crop, SoilSensorReading
-from .serializers import FarmSerializer, CropSerializer
+from .models import Farm, Crop, SoilSensorReading, Plot
+from .serializers import FarmSerializer, CropSerializer, PlotSerializer
 from rest_framework.permissions import AllowAny
 from django.core.files.storage import default_storage
 from io import BytesIO
@@ -35,6 +38,24 @@ class ProfileView(APIView):
             "first_name": user.first_name,
             "last_name": user.last_name,
         })
+    
+class PlotViewSet(viewsets.ModelViewSet):
+    serializer_class = PlotSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Plot.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def plot_ids(self, request):
+        """
+        Custom action to get only the plot_id values for the current user
+        """
+        plots = self.get_queryset().values_list('plot_id', flat=True)
+        return Response({"plot_ids": list(plots)})
     
 
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser, Farm, Crop, SoilSensorReading
+from .models import CustomUser, Farm, Crop, SoilSensorReading, Plot
 from django.contrib.auth.password_validation import validate_password
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -49,3 +49,9 @@ class SoilSensorReadingSerializer(serializers.ModelSerializer):
         model = SoilSensorReading
         fields = '__all__'
         read_only_fields = ['user']
+
+class PlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plot
+        fields = '__all__'
+        read_only_fields = ['user', 'unique_plot_key']

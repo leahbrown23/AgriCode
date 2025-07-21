@@ -1,6 +1,10 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, ProfileView, farm_view, crop_view, upload_soil_data, latest_soil_data, latest_soil_reading_by_plot, get_user_plot_numbers
+from .views import RegisterView, ProfileView, PlotViewSet, farm_view, crop_view, upload_soil_data, latest_soil_data, latest_soil_reading_by_plot, get_user_plot_numbers
+
+router = DefaultRouter()
+router.register(r'plots', PlotViewSet, basename='plot')
 
 urlpatterns = [
     path('register/', RegisterView.as_view()),
@@ -13,4 +17,6 @@ urlpatterns = [
     path('latest-soil-data/', latest_soil_data),
     path('latest-reading/', latest_soil_reading_by_plot),
     path('get-user-plots/', get_user_plot_numbers, name='latest-reading'),
+
+    path('', include(router.urls)),
 ]
