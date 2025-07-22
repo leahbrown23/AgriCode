@@ -277,15 +277,7 @@ function App() {
                     >
                       User Management
                     </button>
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("cropSetup")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Crop Management
-                    </button>
+
                     <button
                       onClick={() => {
                         setCurrentScreen("plotManagement")
@@ -295,6 +287,17 @@ function App() {
                     >
                       Plot Management
                     </button>
+                    
+                    <button
+                      onClick={() => {
+                        setCurrentScreen("cropSetup")
+                        setIsMenuOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Crop Management
+                    </button>
+                    
                   </div>
                 )}
               </div>
