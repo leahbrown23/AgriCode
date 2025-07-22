@@ -1,10 +1,23 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, ProfileView, PlotViewSet, farm_view, crop_view, upload_soil_data, latest_soil_data, latest_soil_reading_by_plot, get_user_plot_numbers
+from .views import (
+    RegisterView, 
+    ProfileView, 
+    PlotViewSet, 
+    CropViewSet, 
+    farm_view, 
+    crop_view, 
+    crop_detail_view, 
+    upload_soil_data, 
+    latest_soil_data, 
+    latest_soil_reading_by_plot, 
+    get_user_plot_numbers
+)
 
 router = DefaultRouter()
-router.register(r'plots', PlotViewSet, basename='plot')
+router.register(r'farm/plots', PlotViewSet, basename='plot')
+router.register(r'farm/crops', CropViewSet, basename='crop')
 
 urlpatterns = [
     path('register/', RegisterView.as_view()),
@@ -12,11 +25,14 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view()),
     path('farm/', farm_view),
-    path('farm/crops/', crop_view),
+    
+    # Keep the old function-based view for backward compatibility
+    path('farm/crops/', crop_view, name='crop-list'),  # This will be overridden by the router
+    path('farm/crops/<int:crop_id>/', crop_detail_view, name='crop-detail'),  # GET, PUT, DELETE
+    
     path('upload-soil/', upload_soil_data),
     path('latest-soil-data/', latest_soil_data),
     path('latest-reading/', latest_soil_reading_by_plot),
-    path('get-user-plots/', get_user_plot_numbers, name='latest-reading'),
-
+    path('get-user-plots/', get_user_plot_numbers, name='get-user-plots'),
     path('', include(router.urls)),
 ]

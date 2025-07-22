@@ -5,7 +5,12 @@ import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
-export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThreadClick }) {
+export default function FarmSetupScreen({
+  onBackClick,
+  onAddCropsClick,
+  onThreadClick,
+  onManagePlotsClick, // ✅ New prop
+}) {
   const [user, setUser] = useState(null)
   const [farmExists, setFarmExists] = useState(false)
   const [farmName, setFarmName] = useState("")
@@ -17,7 +22,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
   const [loading, setLoading] = useState(true)
   const [favoriteThreads, setFavoriteThreads] = useState([])
   const [isEditing, setIsEditing] = useState(false)
-  const [loadingFavorites, setLoadingFavorites] = useState(true) // 🆕 New state for spinner
+  const [loadingFavorites, setLoadingFavorites] = useState(true)
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
@@ -58,7 +63,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
       const stored = localStorage.getItem("favorites")
       const favoriteIds = stored ? JSON.parse(stored) : []
 
-      setLoadingFavorites(true) // 🆕 Start loading spinner
+      setLoadingFavorites(true)
 
       if (favoriteIds.length > 0) {
         try {
@@ -71,7 +76,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
         }
       }
 
-      setLoadingFavorites(false) // 🆕 End loading spinner
+      setLoadingFavorites(false)
     }
 
     fetchFavorites()
@@ -173,6 +178,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                 <button onClick={handleUpdateFarmAndExitEditMode} className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2">Save Farm</button>
               )}
               <button onClick={onAddCropsClick} className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded">Manage Crops</button>
+              <button onClick={onManagePlotsClick} className="bg-[#6b7280] hover:bg-[#4b5563] text-white w-full py-2 rounded">Manage Plots</button>
             </>
           )}
           <button onClick={onBackClick} className="text-sm text-gray-700 hover:underline">Back</button>
