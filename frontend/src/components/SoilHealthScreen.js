@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, Info, Menu, User, Droplets, Leaf, Zap, Activity } from "lucide-react"
+import { Activity, ArrowLeft, Droplets, Home, Info, Leaf, Menu, User, Zap } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 
@@ -16,6 +16,8 @@ export default function SoilHealthScreen({
   const [soilData, setSoilData] = useState(null)
   const [plotOptions, setPlotOptions] = useState([])
   const [selectedPlot, setSelectedPlot] = useState("")
+  const [showExplanation, setShowExplanation] = useState(false)
+
 
   // Fetch user profile
   useEffect(() => {
@@ -30,28 +32,34 @@ export default function SoilHealthScreen({
     fetchProfile()
   }, [])
 
-  // Fetch user plots
-  useEffect(() => {
-    const fetchPlots = async () => {
-      try {
-        const res = await api.get("/api/farm/plots/")
-        // Handle different response formats and ensure it's always an array
-        const plotsData = res.data?.results || res.data || []
-        const plotsArray = Array.isArray(plotsData) ? plotsData : []
-
-        // Extract plot_id values for the dropdown
-        const plotIds = plotsArray.map((plot) => plot.plot_id)
-        setPlotOptions(plotIds)
-        setSelectedPlot(plotIds[0] || "")
-      } catch (err) {
-        console.error("Failed to fetch plots", err)
-        // Set empty array if fetch fails
-        setPlotOptions([])
-        setSelectedPlot("")
+// Fetch user's crops to build dropdown with plot_number and crop_type
+useEffect(() => {
+  const fetchCrops = async () => {
+    try {
+      const res = await api.get("/api/farm/crops/")
+      const cropsData = res.data || []
+      const formattedOptions = cropsData.map((crop) => ({
+        value: crop.plot_number,
+        label: `Plot ${crop.plot_number} - ${crop.crop_type}`,
+      }))
+      setPlotOptions(formattedOptions)
+      if (formattedOptions.length > 0) {
+        const savedPlot = localStorage.getItem("selectedPlot")
+      if (savedPlot && formattedOptions.find((opt) => opt.value === savedPlot)) {
+        setSelectedPlot(savedPlot)
+      } else {
+        setSelectedPlot(formattedOptions[0].value)
       }
+      }
+    } catch (err) {
+      console.error("Failed to fetch crops", err)
+      setPlotOptions([])
+      setSelectedPlot("")
     }
-    fetchPlots()
-  }, [])
+  }
+  fetchCrops()
+}, [])
+
 
   // Fetch soil data for selected plot
   useEffect(() => {
@@ -70,14 +78,26 @@ export default function SoilHealthScreen({
     }
   }, [selectedPlot])
 
-  const score = soilData ? calculateSoilScore(soilData) : 0
+  //const score = soilData ? calculateSoilScore(soilData) : 0
 
-  function calculateSoilScore(data) {
-    const { moisture_level, N, P, K } = data
-    // Updated weights to include Potassium: moisture 25%, N 30%, P 25%, K 20%
-    const score = moisture_level * 0.25 + N * 0.3 + P * 0.25 + (K || 0) * 0.2
-    return Math.round(score)
-  }
+function calculateSoilScore(data) {
+  const pH = parseFloat(data.pH_level) || 0
+  const nitrogen = parseFloat(data.N) || 0
+  const phosphorus = parseFloat(data.P) || 0
+  const potassium = parseFloat(data.K) || 0
+
+  const score = Math.round(pH * 0.2 + nitrogen * 0.35 + phosphorus * 0.25 + potassium * 0.2)
+
+  let classification = ""
+  if (score >= 80) classification = "Healthy"
+  else if (score >= 60) classification = "Moderate"
+  else classification = "Poor"
+
+  return { score, classification }
+}
+
+const { score, classification } = soilData ? calculateSoilScore(soilData) : { score: 0, classification: "" }
+
 
   return (
     <div className="flex flex-col h-full pb-12">
@@ -102,20 +122,22 @@ export default function SoilHealthScreen({
           <select
             className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
             value={selectedPlot}
-            onChange={(e) => setSelectedPlot(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value
+              setSelectedPlot(value)
+              localStorage.setItem("selectedPlot", value)
+            }}
             disabled={plotOptions.length === 0}
           >
-            {plotOptions.length > 0 ? (
-              plotOptions.map((plot) => (
-                <option key={plot} value={plot}>
-                  Plot {plot}
-                </option>
-              ))
-            ) : (
-              <option value="" disabled>
-                No plots available
+          {plotOptions.length > 0 ? (
+            plotOptions.map((plot) => (
+              <option key={plot.value} value={plot.value}>
+                {plot.label}
               </option>
-            )}
+            ))
+          ) : (
+            <option value="" disabled>No plots available</option>
+          )}
           </select>
         </div>
         {soilData ? (
@@ -133,12 +155,63 @@ export default function SoilHealthScreen({
             {/* Score Card */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="text-center mb-6">
-                <div className="flex items-center justify-center mb-2">
-                  <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
-                  <Info size={14} className="text-gray-400" />
+              <div className="flex items-center justify-center mb-2">
+                <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
+                <button onClick={() => setShowExplanation(true)} className="text-gray-400 hover:text-gray-600">
+                  <Info size={14} />
+                </button>
+                {showExplanation && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                  <div className="bg-white rounded-xl shadow-lg max-w-sm p-6 text-sm text-gray-800">
+                    <h2 className="text-lg font-bold mb-3">How Soil Score is Calculated</h2>
+                    <p className="mb-2">
+                      The Soil Health Score (SHS) is a weighted average of key soil nutrients and pH:
+                    </p>
+                    <ul className="list-disc list-inside mb-2">
+                      <li>pH level: 20%</li>
+                      <li>Nitrogen (N): 35%</li>
+                      <li>Phosphorus (P): 25%</li>
+                      <li>Potassium (K): 20%</li>
+                    </ul>
+                    <p className="mb-2">
+                      Formula: <code>(pH × 0.2) + (N × 0.35) + (P × 0.25) + (K × 0.2)</code>
+                    </p>
+                    <p className="mt-4">
+                      <strong>Score Classification:</strong><br />
+                      <span className="text-green-700">80–100:</span> Healthy<br />
+                      <span className="text-yellow-600">60–79:</span> Moderate<br />
+                      <span className="text-red-600">Below 60:</span> Poor
+                    </p>
+                    <div className="text-right mt-6">
+                      <button
+                        onClick={() => setShowExplanation(false)}
+                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              )}
+              </div>
                 <div className="relative">
                   <div className="text-6xl font-bold text-green-600 mb-2">{score}</div>
+                  {classification && (
+                    <div className="text-sm font-semibold text-gray-600">
+                      Classification:{" "}
+                      <span
+                        className={`${
+                          classification === "Healthy"
+                            ? "text-green-600"
+                            : classification === "Moderate"
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {classification}
+                      </span>
+                    </div>
+                  )}
                   <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto">
                     <div
                       className="h-2 bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-500"

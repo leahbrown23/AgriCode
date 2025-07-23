@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, Menu, Upload, User, CheckCircle, X } from "lucide-react"
+import { ArrowLeft, CheckCircle, Home, Menu, Upload, User, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -96,7 +96,7 @@ export default function UploadSensorData({ onBackClick, onHomeClick, onProfileCl
       </div>
 
       {/* Main content */}
-      <div className="flex-1 p-6 space-y-6 bg-[#d1e6b2]">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#d1e6b2]">
         {/* Success Message */}
         {uploadSuccess && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">

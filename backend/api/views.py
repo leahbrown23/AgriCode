@@ -132,6 +132,14 @@ def crop_detail_view(request, crop_id):
     elif request.method == 'DELETE':
         crop.delete()
         return Response({'message': 'Crop deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_crop_by_plot_key(request, plot_key):
+    crop = get_object_or_404(Crop, user=request.user, plot__unique_plot_key=plot_key)
+    serializer = CropSerializer(crop)
+    return Response(serializer.data)
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])

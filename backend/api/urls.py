@@ -12,7 +12,8 @@ from .views import (
     upload_soil_data, 
     latest_soil_data, 
     latest_soil_reading_by_plot, 
-    get_user_plot_numbers
+    get_user_plot_numbers,
+    get_crop_by_plot_key,
 )
 
 router = DefaultRouter()
@@ -35,4 +36,6 @@ urlpatterns = [
     path('latest-reading/', latest_soil_reading_by_plot),
     path('get-user-plots/', get_user_plot_numbers, name='get-user-plots'),
     path('', include(router.urls)),
+    path('farm/crops/by-plot/<str:plot_key>/', get_crop_by_plot_key),
+
 ]

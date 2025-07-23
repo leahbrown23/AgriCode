@@ -204,6 +204,7 @@ function App() {
               <div className="px-4 mb-2">
                 <button
                   onClick={() => {
+                    localStorage.removeItem("selectedPlot")
                     setCurrentScreen("login")
                     setIsMenuOpen(false)
                   }}
