@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, Menu, User } from "lucide-react"
+import { ArrowLeft, Home, User, Menu, Sprout, MapPin, Search, Plus, Edit, AlertTriangle } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -19,6 +19,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   const [loading, setLoading] = useState(true)
   const [tableLoading, setTableLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
   const cropTypes = [
     "Maize",
@@ -39,10 +40,13 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        console.log("🔍 Fetching user profile...")
         const res = await api.get("/api/profile/")
+        console.log("✅ Profile response:", res.data)
         setUser(res.data)
       } catch (err) {
-        console.error("Failed to load user profile:", err)
+        console.error("❌ Failed to load user profile:", err)
+        setErrorMessage("Failed to load profile: " + err.message)
       } finally {
         setLoading(false)
       }
@@ -62,7 +66,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     setFilteredCrops(
       userCrops.filter(
         (crop) =>
-          crop.plot_number?.toLowerCase().includes(term) ||
+          crop.plot_number?.toString().toLowerCase().includes(term) ||
           crop.crop_type?.toLowerCase().includes(term) ||
           crop.crop_variety?.toLowerCase().includes(term),
       ),
@@ -71,13 +75,23 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
 
   const fetchUserCrops = async () => {
     setTableLoading(true)
+    setErrorMessage("")
     try {
+      console.log("🔍 Fetching crops from /api/farm/crops/...")
       const res = await api.get("/api/farm/crops/")
+      console.log("✅ Crops API response:", res)
+      console.log("✅ Crops data:", res.data)
+
       const cropsData = res.data?.results || res.data || []
+      console.log("✅ Processed crops data:", cropsData)
       setUserCrops(Array.isArray(cropsData) ? cropsData : [])
-      console.log("Fetched crops:", cropsData)
     } catch (err) {
-      console.error("Error fetching crops:", err)
+      console.error("❌ Error fetching crops:", err)
+      console.error("❌ Error response:", err.response)
+      console.error("❌ Error status:", err.response?.status)
+      console.error("❌ Error data:", err.response?.data)
+
+      setErrorMessage(`API Error: ${err.response?.status || "Network"} - ${err.response?.data?.detail || err.message}`)
       setUserCrops([])
     } finally {
       setTableLoading(false)
@@ -86,38 +100,52 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
 
   const fetchUserPlots = async () => {
     try {
+      console.log("🔍 Fetching plots from /api/farm/plots/...")
       const res = await api.get("/api/farm/plots/")
+      console.log("✅ Plots API response:", res)
+      console.log("✅ Plots data:", res.data)
+
       const plotsData = res.data?.results || res.data || []
+      console.log("✅ Processed plots data:", plotsData)
       setUserPlots(Array.isArray(plotsData) ? plotsData : [])
     } catch (err) {
-      console.error("Error fetching plots:", err)
+      console.error("❌ Error fetching plots:", err)
       setUserPlots([])
     }
   }
 
-const getPlotDisplayName = (uniqueId) => {
-  const plot = userPlots.find((p) => p.unique_plot_id === uniqueId)
-  return plot ? `Plot ${plot.plot_id} - ${plot.location}` : uniqueId
-}
+  const getPlotDisplayName = (uniqueId) => {
+    const plot = userPlots.find((p) => p.unique_plot_id === uniqueId)
+    return plot ? `Plot ${plot.plot_id} - ${plot.location}` : uniqueId
+  }
 
-const getRawPlotId = (uniqueKey) => {
-  // "P100U3" => "100"
-  return uniqueKey.split("U")[0].replace("P", "")
-}
+  const getRawPlotId = (uniqueKey) => {
+    // "P100U3" => "100"
+    return uniqueKey.split("U")[0].replace("P", "")
+  }
 
   const handleAddCrop = async () => {
     if (!selectedPlotId || !cropType || !cropVariety) {
-      alert("Please fill in all fields.")
+      setErrorMessage("Please fill in all fields.")
+      setTimeout(() => setErrorMessage(""), 3000)
       return
     }
 
     try {
+      console.log("🔍 Adding crop:", {
+        plot_number: getRawPlotId(selectedPlotId),
+        plot: selectedPlotId,
+        crop_type: cropType,
+        crop_variety: cropVariety,
+      })
+
       await api.post("/api/farm/crops/", {
         plot_number: getRawPlotId(selectedPlotId),
         plot: selectedPlotId,
         crop_type: cropType,
         crop_variety: cropVariety,
       })
+
       setSuccessMessage("Crop added successfully!")
       setSelectedPlotId("")
       setCropType("")
@@ -125,47 +153,84 @@ const getRawPlotId = (uniqueKey) => {
       fetchUserCrops()
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
-      console.error(err)
-      alert("Error adding crop: " + JSON.stringify(err.response?.data || err))
+      console.error("❌ Full error object:", err)
+      console.error("❌ Error response:", err.response)
+      console.error("❌ Error status:", err.response?.status)
+      console.error("❌ Error data:", err.response?.data)
+
+      let errorMessage = "Error adding crop"
+
+      if (err.response?.data) {
+        console.error("❌ Raw response data:", typeof err.response.data, err.response.data)
+
+        if (typeof err.response.data === "string") {
+          if (err.response.data.includes("IntegrityError") || err.response.data.includes("UNIQUE constraint")) {
+            errorMessage = "Duplicate constraint error (but database appears empty - check backend logic)"
+          } else if (err.response.data.includes("<!DOCTYPE html>")) {
+            errorMessage = "Server returned HTML error page - check Django logs"
+          } else {
+            errorMessage = err.response.data
+          }
+        } else if (typeof err.response.data === "object") {
+          errorMessage = JSON.stringify(err.response.data, null, 2)
+        }
+      } else {
+        errorMessage = err.message || "Unknown error occurred"
+      }
+
+      setErrorMessage(errorMessage)
+      setTimeout(() => setErrorMessage(""), 8000)
     }
   }
 
   const handleUpdateCrop = async () => {
     if (!editingCrop || !editingCrop.id) {
-      alert("Error: No crop selected for update")
+      setErrorMessage("Error: No crop selected for update")
+      setTimeout(() => setErrorMessage(""), 3000)
       return
     }
-
     try {
-      // Using the correct endpoint based on your Django setup
       await api.put(`/api/farm/crops/${editingCrop.id}/`, {
         plot_number: editingCrop.plot_number,
         plot: editingCrop.plot,
         crop_type: editingCrop.crop_type,
         crop_variety: editingCrop.crop_variety,
       })
-
       setSuccessMessage("Crop updated successfully!")
       setEditingCrop(null)
       fetchUserCrops()
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
       console.error("Update error:", err)
-      alert(`Error updating crop: ${err.response?.data || err.message}`)
+      let errorMessage = "Error updating crop"
+
+      if (err.response?.data) {
+        if (typeof err.response.data === "string" && err.response.data.includes("<!DOCTYPE html>")) {
+          if (err.response.data.includes("IntegrityError") || err.response.data.includes("UNIQUE constraint")) {
+            errorMessage = "This crop combination already exists for this plot."
+          } else {
+            errorMessage = "Server error occurred. Please try again."
+          }
+        } else {
+          errorMessage = JSON.stringify(err.response.data)
+        }
+      }
+
+      setErrorMessage(errorMessage)
+      setTimeout(() => setErrorMessage(""), 5000)
+      setEditingCrop(null)
     }
   }
 
   const handleDeleteCrop = async () => {
     if (!editingCrop || !editingCrop.id) {
-      alert("Error: No crop selected for deletion")
+      setErrorMessage("Error: No crop selected for deletion")
       setShowDeleteConfirm(false)
+      setTimeout(() => setErrorMessage(""), 3000)
       return
     }
-
     try {
-      // Using the correct endpoint based on your Django setup
       await api.delete(`/api/farm/crops/${editingCrop.id}/`)
-
       setSuccessMessage("Crop deleted successfully!")
       setEditingCrop(null)
       setShowDeleteConfirm(false)
@@ -173,7 +238,8 @@ const getRawPlotId = (uniqueKey) => {
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
       console.error("Delete error:", err)
-      alert(`Error deleting crop: ${err.response?.data || err.message}`)
+      setErrorMessage(`Error deleting crop: ${err.response?.data?.detail || err.message}`)
+      setTimeout(() => setErrorMessage(""), 5000)
       setShowDeleteConfirm(false)
     }
   }
@@ -182,219 +248,377 @@ const getRawPlotId = (uniqueKey) => {
 
   return (
     <div className="flex flex-col h-full pb-12">
-      <div className="p-4 bg-white flex items-center">
-        <button onClick={onBackClick} className="mr-2">
+      {/* Top Header */}
+      <div className="p-4 bg-white flex items-center shadow-sm">
+        <button onClick={onBackClick} className="mr-2 p-1 hover:bg-gray-100 rounded-full transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-semibold flex-1 text-center">Crop Setup</h1>
       </div>
 
-      <div className="flex-1 flex flex-col bg-[#d1e6b2] p-6 space-y-4 overflow-y-auto">
+      <div className="flex-1 bg-[#d1e6b2] p-4 space-y-4 overflow-y-auto">
+        {/* User Info */}
         {user && (
-          <div className="text-sm text-right text-gray-700">
-            Logged in as: <strong>{user.email}</strong>
+          <div className="text-right">
+            <div className="inline-flex items-center bg-white px-3 py-2 rounded-lg shadow-sm">
+              <User className="w-4 h-4 text-gray-500 mr-2" />
+              <span className="text-xs text-gray-500 mr-2">Logged in as:</span>
+              <span className="text-xs font-medium text-gray-700">{user.email}</span>
+            </div>
           </div>
         )}
 
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl shadow-lg p-4">
+            <div className="flex items-center text-white">
+              <div className="w-5 h-5 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+                <span className="text-red-600 text-xs font-bold">!</span>
+              </div>
+              <span className="font-medium">{errorMessage}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Success Message */}
         {successMessage && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded">{successMessage}</div>
-        )}
-
-        {/* Plot Selection Dropdown */}
-        <select
-          value={selectedPlotId}
-          onChange={(e) => setSelectedPlotId(e.target.value)}
-          className="w-full bg-white border p-2 rounded"
-        >
-          <option value="" disabled>
-            Select Plot
-          </option>
-          {userPlots.map((plot) => (
-            <option key={plot.id} value={plot.unique_plot_key}>
-              {plot.plot_id} - {plot.location} ({plot.size} ha)
-            </option>
-          ))}
-        </select>
-
-        {userPlots.length === 0 && (
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded text-sm">
-            No plots available. Please create a plot first in Plot Management.
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-4">
+            <div className="flex items-center text-white">
+              <div className="w-5 h-5 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+                <span className="text-green-600 text-xs font-bold">✓</span>
+              </div>
+              <span className="font-medium">{successMessage}</span>
+            </div>
           </div>
         )}
 
-        <select
-          value={cropType}
-          onChange={(e) => setCropType(e.target.value)}
-          className="w-full bg-white border p-2 rounded"
-        >
-          <option value="" disabled>
-            Select Crop Type
-          </option>
-          {cropTypes.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
+        {/* Add Crop Form */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center mb-6">
+            <div className="p-2 bg-green-100 rounded-lg mr-3">
+              <Plus className="w-5 h-5 text-green-600" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800">Add New Crop</h2>
+          </div>
 
-        <input
-          type="text"
-          placeholder="Crop Variety"
-          value={cropVariety}
-          onChange={(e) => setCropVariety(e.target.value)}
-          className="w-full bg-white border p-2 rounded"
-        />
-
-        <button
-          onClick={handleAddCrop}
-          disabled={userPlots.length === 0}
-          className="bg-[#2a9d4a] text-white w-full py-2 rounded hover:bg-[#238a3e] disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          Add Crop
-        </button>
-
-        <input
-          type="text"
-          placeholder="Search crops..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full border p-2 rounded bg-white"
-        />
-
-        <div className="bg-white rounded shadow p-4">
-          <h2 className="text-md font-semibold mb-4">Your Crops</h2>
-          {tableLoading ? (
-            <LoadingSpinner />
-          ) : filteredCrops.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              {userCrops.length === 0 ? "No crops found. Add your first crop above!" : "No crops match your search."}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm rounded-xl overflow-hidden">
-                <thead>
-                  <tr className="bg-[#edf6e5] text-left text-[#293241]">
-                    <th className="px-4 py-3">Plot</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Variety</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredCrops.map((crop) => (
-                    <tr key={crop.id} className="hover:bg-[#f0fdf4] transition-all">
-                      <td
-                        onClick={() => setEditingCrop(crop)}
-                        className="px-4 py-2 text-[#2a9d4a] cursor-pointer hover:underline"
-                      >
-                        {getPlotDisplayName(crop.plot_number)}
-                      </td>
-                      <td
-                        onClick={() => setEditingCrop(crop)}
-                        className="px-4 py-2 text-[#2a9d4a] cursor-pointer hover:underline"
-                      >
-                        {crop.crop_type}
-                      </td>
-                      <td className="px-4 py-2">{crop.crop_variety}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* No Plots Warning */}
+          {userPlots.length === 0 && (
+            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mr-3" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-800">No plots available</p>
+                  <p className="text-xs text-yellow-600">Please create a plot first in Plot Management.</p>
+                </div>
+              </div>
             </div>
           )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Plot *</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={selectedPlotId}
+                  onChange={(e) => setSelectedPlotId(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
+                >
+                  <option value="" disabled>
+                    Select Plot
+                  </option>
+                  {userPlots.map((plot) => (
+                    <option key={plot.id} value={plot.unique_plot_key}>
+                      {plot.plot_id} - {plot.location} ({Number.parseFloat(plot.size).toFixed(2)} ha)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Crop Type *</label>
+              <div className="relative">
+                <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={cropType}
+                  onChange={(e) => setCropType(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
+                >
+                  <option value="" disabled>
+                    Select Crop Type
+                  </option>
+                  {cropTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Crop Variety *</label>
+              <div className="relative">
+                <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Enter crop variety"
+                  value={cropVariety}
+                  onChange={(e) => setCropVariety(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleAddCrop}
+              disabled={userPlots.length === 0}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02] disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              Add Crop
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
-        <button onClick={onHomeClick} className="w-1/3 flex justify-center">
-          <Home size={20} />
-        </button>
-        <button onClick={onProfileClick} className="w-1/3 flex justify-center">
-          <User size={20} />
-        </button>
-        <button onClick={onMenuClick} className="w-1/3 flex justify-center">
-          <Menu size={20} />
-        </button>
-      </div>
-
-      {editingCrop && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 px-4">
-          <div className="bg-white w-full max-w-xs mx-auto p-5 rounded-xl shadow-xl overflow-y-auto max-h-[90vh] space-y-4">
-            <h3 className="text-xl font-bold text-[#2a9d4a] text-center">Edit Crop</h3>
-
-            <select
-              value={editingCrop.plot_number}
-              onChange={(e) => setEditingCrop({ ...editingCrop, plot_number: e.target.value })}
-              className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2a9d4a]"
-            >
-              <option value="" disabled>
-                Select Plot
-              </option>
-              {userPlots.map((plot) => (
-                <option key={plot.id} value={plot.plot_id}>
-                  {plot.plot_id} - {plot.location} ({plot.size} ha)
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={editingCrop.crop_type}
-              onChange={(e) => setEditingCrop({ ...editingCrop, crop_type: e.target.value })}
-              className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2a9d4a]"
-            >
-              <option value="" disabled>
-                Select Crop Type
-              </option>
-              {cropTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-
+        {/* Search */}
+        <div className="bg-white rounded-xl shadow-lg p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
-              value={editingCrop.crop_variety}
-              onChange={(e) => setEditingCrop({ ...editingCrop, crop_variety: e.target.value })}
-              placeholder="Crop Variety"
-              className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2a9d4a]"
+              type="text"
+              placeholder="Search crops..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
             />
+          </div>
+        </div>
 
-            <div className="flex justify-between pt-2">
+        {/* CROPS TABLE - COMPACT VERSION */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg mr-3">
+                <Sprout className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Your Crops</h2>
+                <p className="text-sm text-gray-500">Click on any row to edit</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {tableLoading ? (
+              <div className="px-4 py-8 text-center">
+                <div className="flex items-center justify-center">
+                  <LoadingSpinner />
+                  <span className="ml-2 text-gray-500">Loading crops...</span>
+                </div>
+              </div>
+            ) : errorMessage && userCrops.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <div className="p-4 bg-red-50 rounded-lg inline-block mb-4">
+                  <Sprout className="w-8 h-8 text-red-400 mx-auto" />
+                </div>
+                <p className="text-red-500 font-medium">API Connection Error</p>
+                <p className="text-sm text-red-400">Check console for details</p>
+                <button
+                  onClick={fetchUserCrops}
+                  className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : filteredCrops.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
+                  <Sprout className="w-8 h-8 text-gray-400 mx-auto" />
+                </div>
+                <p className="text-gray-500 font-medium">
+                  {userCrops.length === 0 ? "No crops found" : "No crops match your search"}
+                </p>
+                <p className="text-sm text-gray-400">
+                  {userCrops.length === 0 ? "Add your first crop above!" : "Try a different search term"}
+                </p>
+              </div>
+            ) : (
+              filteredCrops.map((crop) => (
+                <div
+                  key={crop.id}
+                  className="p-4 hover:bg-gray-50 transition-colors duration-150 ease-in-out cursor-pointer"
+                  onClick={() => setEditingCrop(crop)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center flex-1 min-w-0">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mr-3 flex-shrink-0"></div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center space-x-3 mb-1">
+                          <span className="text-sm font-medium text-green-600 hover:text-green-700">
+                            {getPlotDisplayName(crop.plot_number)}
+                          </span>
+                          <span className="text-xs text-gray-400">•</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {crop.crop_type}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-900 truncate">{crop.crop_variety}</div>
+                      </div>
+                    </div>
+                    <div className="ml-2 flex-shrink-0">
+                      <Edit className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        {/* Bottom spacer to ensure content is visible above navigation */}
+        <div className="h-20"></div>
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white shadow-lg">
+        <button
+          onClick={onHomeClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <Home size={20} className="text-gray-600" />
+        </button>
+        <button
+          onClick={onProfileClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <User size={20} className="text-gray-600" />
+        </button>
+        <button
+          onClick={onMenuClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <Menu size={20} className="text-gray-600" />
+        </button>
+      </div>
+
+      {/* Edit Crop Modal - COMPACT VERSION */}
+      {editingCrop && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 p-4">
+          <div className="bg-white w-full max-w-sm mx-auto rounded-xl shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg mr-3">
+                  <Edit className="w-4 h-4 text-green-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800">Edit Crop</h3>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Plot</label>
+                <select
+                  value={editingCrop.plot_number}
+                  onChange={(e) => setEditingCrop({ ...editingCrop, plot_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none text-sm"
+                >
+                  <option value="" disabled>
+                    Select Plot
+                  </option>
+                  {userPlots.map((plot) => (
+                    <option key={plot.id} value={plot.plot_id}>
+                      {plot.plot_id} - {plot.location} ({Number.parseFloat(plot.size).toFixed(2)} ha)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Crop Type</label>
+                <select
+                  value={editingCrop.crop_type}
+                  onChange={(e) => setEditingCrop({ ...editingCrop, crop_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none text-sm"
+                >
+                  <option value="" disabled>
+                    Select Crop Type
+                  </option>
+                  {cropTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Crop Variety</label>
+                <input
+                  value={editingCrop.crop_variety}
+                  onChange={(e) => setEditingCrop({ ...editingCrop, crop_variety: e.target.value })}
+                  placeholder="Crop Variety"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 flex flex-col space-y-2">
               <button
                 onClick={handleUpdateCrop}
-                className="bg-[#2a9d4a] text-white px-4 py-2 rounded-lg hover:bg-[#238a3e]"
+                className="w-full py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-medium transition-all duration-200 text-sm"
               >
-                Save
+                Save Changes
               </button>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Delete
-              </button>
-              <button onClick={() => setEditingCrop(null)} className="text-gray-500 hover:text-black underline">
-                Cancel
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex-1 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-medium transition-all duration-200 text-sm"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setEditingCrop(null)}
+                  className="flex-1 py-2 text-gray-500 hover:text-gray-700 font-medium transition-colors border border-gray-300 rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Delete Confirmation Modal - COMPACT VERSION */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] px-4">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
-            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this crop? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-xs w-full overflow-hidden">
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center">
+                <div className="p-2 bg-red-100 rounded-lg mr-3">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800">Confirm Delete</h3>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <p className="text-gray-600 text-sm">
+                Are you sure you want to delete this crop? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 flex flex-col space-y-2">
+              <button
+                onClick={handleDeleteCrop}
+                className="w-full py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-medium transition-all duration-200 text-sm"
+              >
+                Delete Crop
+              </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="w-full py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors border border-gray-300 rounded-lg text-sm"
               >
                 Cancel
-              </button>
-              <button onClick={handleDeleteCrop} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-                Delete
               </button>
             </div>
           </div>
