@@ -13,14 +13,10 @@ export default function SoilHealthScreen({
   onProfileClick,
   onMenuClick,
 }) {
-  const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
   const [soilData, setSoilData] = useState(null)
   const [plotOptions, setPlotOptions] = useState([])
   const [selectedPlot, setSelectedPlot] = useState("")
-
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
   // Fetch user profile
   useEffect(() => {
@@ -39,21 +35,25 @@ export default function SoilHealthScreen({
   useEffect(() => {
     const fetchPlots = async () => {
       try {
-        const res = await api.get("/api/get-user-plots/", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        const uniquePlots = res.data.plots
-        setPlotOptions(uniquePlots)
-        setSelectedPlot(uniquePlots[0] || "")
+        const res = await api.get("/api/farm/plots/")
+        // Handle different response formats and ensure it's always an array
+        const plotsData = res.data?.results || res.data || []
+        const plotsArray = Array.isArray(plotsData) ? plotsData : []
+        
+        // Extract plot_id values for the dropdown
+        const plotIds = plotsArray.map(plot => plot.plot_id)
+        setPlotOptions(plotIds)
+        setSelectedPlot(plotIds[0] || "")
       } catch (err) {
         console.error("Failed to fetch plots", err)
+        // Set empty array if fetch fails
+        setPlotOptions([])
+        setSelectedPlot("")
       }
     }
 
     fetchPlots()
-  }, [token])
+  }, [])
 
   // Fetch soil data for selected plot
   useEffect(() => {
@@ -61,33 +61,28 @@ export default function SoilHealthScreen({
       if (!selectedPlot) return
       try {
         const res = await api.get(
-          `/api/latest-reading/?plot_number=${selectedPlot}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          `/api/latest-reading/?plot_number=${selectedPlot}`
         )
         setSoilData(res.data)
       } catch (err) {
         console.error("Error fetching soil data", err)
-      } finally {
-        setLoading(false)
+        setSoilData(null)
       }
     }
 
-    fetchSoilData()
-  }, [selectedPlot, token])
+    if (selectedPlot) {
+      fetchSoilData()
+    }
+  }, [selectedPlot])
 
   const score = soilData ? calculateSoilScore(soilData) : 0
 
   function calculateSoilScore(data) {
-    const { moisture_level, N, P } = data
-    const score = moisture_level * 0.3 + N * 0.4 + P * 0.3
+    const { moisture_level, N, P, K } = data
+    // Updated weights to include Potassium: moisture 25%, N 30%, P 25%, K 20%
+    const score = moisture_level * 0.25 + N * 0.3 + P * 0.25 + (K || 0) * 0.2
     return Math.round(score)
   }
-
-  if (loading) return <LoadingSpinner />
 
   return (
     <div className="flex flex-col h-full pb-12">
@@ -108,12 +103,19 @@ export default function SoilHealthScreen({
             className="mt-1 w-full border border-gray-300 rounded p-2"
             value={selectedPlot}
             onChange={(e) => setSelectedPlot(e.target.value)}
+            disabled={plotOptions.length === 0}
           >
-            {plotOptions.map((plot) => (
-              <option key={plot} value={plot}>
-                Plot {plot}
+            {plotOptions.length > 0 ? (
+              plotOptions.map((plot) => (
+                <option key={plot} value={plot}>
+                  Plot {plot}
+                </option>
+              ))
+            ) : (
+              <option value="" disabled>
+                No plots available
               </option>
-            ))}
+            )}
           </select>
         </div>
 
@@ -135,15 +137,19 @@ export default function SoilHealthScreen({
               <div className="grid grid-cols-2 gap-y-2 text-center">
                 <div>
                   <p className="text-sm">Moisture</p>
-                <p className="text-lg font-semibold">{soilData.moisture_level?.toFixed(2)}</p>
+                  <p className="text-lg font-semibold">{soilData.moisture_level?.toFixed(2)}</p>
                 </div>
                 <div>
                   <p className="text-sm">Nitrogen</p>
                   <p className="text-lg font-semibold">{soilData.N?.toFixed(2)} ppm</p>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <p className="text-sm">Phosphorus</p>
-                 <p className="text-lg font-semibold">{soilData.P?.toFixed(2)} ppm</p>
+                  <p className="text-lg font-semibold">{soilData.P?.toFixed(2)} ppm</p>
+                </div>
+                <div>
+                  <p className="text-sm">Potassium</p>
+                  <p className="text-lg font-semibold">{soilData.K?.toFixed(2)} ppm</p>
                 </div>
               </div>
             </div>
@@ -166,6 +172,9 @@ export default function SoilHealthScreen({
                 <li className="flex items-start">
                   ✅ <span className="ml-2">Apply phosphorus fertilizer: 15 kg/ha</span>
                 </li>
+                <li className="flex items-start">
+                  ✅ <span className="ml-2">Potassium levels are balanced</span>
+                </li>
               </ul>
             </div>
 
@@ -176,28 +185,74 @@ export default function SoilHealthScreen({
                 <div className="text-gray-500 text-sm">Trend graph placeholder</div>
               </div>
             </div>
-
-            {/* Bottom Buttons */}
-            <div className="space-y-2">
-              <button
-                onClick={onViewSensorClick}
-                className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
-              >
-                View Sensor Data
-              </button>
-              <button
-                onClick={onUploadSensorClick}
-                className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded"
-              >
-                Upload Sensor Data
-              </button>
-            </div>
           </>
         ) : (
-          <div className="text-sm text-gray-600">
-            No data available for the selected plot.
-          </div>
+          <>
+            {/* Score Card - No Data */}
+            <div className="bg-white rounded shadow p-4">
+              <p className="text-center text-sm mb-1">
+                SOIL SCORE <Info size={12} className="inline ml-1" />
+              </p>
+              <p className="text-center text-5xl font-bold text-gray-400 mb-4">--</p>
+
+              <div className="grid grid-cols-2 gap-y-2 text-center">
+                <div>
+                  <p className="text-sm">Moisture</p>
+                  <p className="text-lg font-semibold text-gray-400">No data</p>
+                </div>
+                <div>
+                  <p className="text-sm">Nitrogen</p>
+                  <p className="text-lg font-semibold text-gray-400">No data</p>
+                </div>
+                <div>
+                  <p className="text-sm">Phosphorus</p>
+                  <p className="text-lg font-semibold text-gray-400">No data</p>
+                </div>
+                <div>
+                  <p className="text-sm">Potassium</p>
+                  <p className="text-lg font-semibold text-gray-400">No data</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Message - No Data */}
+            <div className="bg-white p-4 rounded shadow text-center text-gray-500 font-semibold">
+              No data available for analysis
+            </div>
+
+            {/* Recommendations - No Data */}
+            <div className="bg-white p-4 rounded shadow">
+              <h2 className="text-lg font-semibold mb-2">Recommendations</h2>
+              <div className="text-center text-gray-500 py-4">
+                No data available - please upload sensor data to get recommendations
+              </div>
+            </div>
+
+            {/* Soil Trends - No Data */}
+            <div className="bg-white p-4 rounded shadow">
+              <h2 className="text-lg font-semibold mb-2">Soil Trends</h2>
+              <div className="bg-[#f9f3e3] h-40 rounded flex items-center justify-center">
+                <div className="text-gray-500 text-sm">No data available</div>
+              </div>
+            </div>
+          </>
         )}
+
+        {/* Bottom Buttons */}
+        <div className="space-y-2">
+          <button
+            onClick={onViewSensorClick}
+            className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
+          >
+            View Sensor Data
+          </button>
+          <button
+            onClick={onUploadSensorClick}
+            className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded"
+          >
+            Upload Sensor Data
+          </button>
+        </div>
 
         <div className="h-2" /> {/* Spacer to prevent content from touching nav */}
       </div>
