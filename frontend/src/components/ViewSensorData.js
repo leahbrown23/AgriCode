@@ -177,7 +177,7 @@ export default function ViewSensorData({ onBackClick, onHomeClick, onProfileClic
           <User size={20} className="text-gray-600" />
         </button>
         <button
-          onClick={() => onMenuClick((prev) => !prev)}
+          onClick={onMenuClick}
           className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
         >
           <Menu size={20} className="text-gray-600" />

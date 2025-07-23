@@ -1,9 +1,8 @@
 "use client"
 
-import { ArrowLeft, Home, Info, Menu, User } from "lucide-react"
+import { ArrowLeft, Home, Info, Menu, User, Droplets, Leaf, Zap, Activity } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
-import LoadingSpinner from "./LoadingSpinner"
 
 export default function SoilHealthScreen({
   onBackClick,
@@ -39,9 +38,9 @@ export default function SoilHealthScreen({
         // Handle different response formats and ensure it's always an array
         const plotsData = res.data?.results || res.data || []
         const plotsArray = Array.isArray(plotsData) ? plotsData : []
-        
+
         // Extract plot_id values for the dropdown
-        const plotIds = plotsArray.map(plot => plot.plot_id)
+        const plotIds = plotsArray.map((plot) => plot.plot_id)
         setPlotOptions(plotIds)
         setSelectedPlot(plotIds[0] || "")
       } catch (err) {
@@ -51,7 +50,6 @@ export default function SoilHealthScreen({
         setSelectedPlot("")
       }
     }
-
     fetchPlots()
   }, [])
 
@@ -60,16 +58,13 @@ export default function SoilHealthScreen({
     const fetchSoilData = async () => {
       if (!selectedPlot) return
       try {
-        const res = await api.get(
-          `/api/latest-reading/?plot_number=${selectedPlot}`
-        )
+        const res = await api.get(`/api/latest-reading/?plot_number=${selectedPlot}`)
         setSoilData(res.data)
       } catch (err) {
         console.error("Error fetching soil data", err)
         setSoilData(null)
       }
     }
-
     if (selectedPlot) {
       fetchSoilData()
     }
@@ -87,20 +82,25 @@ export default function SoilHealthScreen({
   return (
     <div className="flex flex-col h-full pb-12">
       {/* Top Header */}
-      <div className="p-4 bg-white flex items-center">
-        <button onClick={onBackClick} className="mr-2">
+      <div className="p-4 bg-white flex items-center shadow-sm">
+        <button onClick={onBackClick} className="mr-2 p-1 hover:bg-gray-100 rounded-full transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-semibold flex-1 text-center">Soil Health</h1>
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-4 space-y-4">
         {/* Plot Filter */}
-        <div className="bg-white p-3 rounded shadow">
-          <label className="text-sm font-medium text-gray-700">Select Plot:</label>
+        <div className="bg-white rounded-xl shadow-lg p-4">
+          <div className="flex items-center mb-3">
+            <div className="p-2 bg-green-100 rounded-lg mr-3">
+              <Leaf className="w-4 h-4 text-green-600" />
+            </div>
+            <label className="text-sm font-semibold text-gray-700">Select Plot</label>
+          </div>
           <select
-            className="mt-1 w-full border border-gray-300 rounded p-2"
+            className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
             value={selectedPlot}
             onChange={(e) => setSelectedPlot(e.target.value)}
             disabled={plotOptions.length === 0}
@@ -118,155 +118,249 @@ export default function SoilHealthScreen({
             )}
           </select>
         </div>
-
         {soilData ? (
           <>
             {/* Date Updated */}
-            <div className="text-sm text-right text-gray-600">
-              Date last updated:{" "}
-              <strong>{new Date(soilData.timestamp).toLocaleString()}</strong>
+            <div className="text-right">
+              <div className="inline-flex items-center bg-white px-3 py-2 rounded-lg shadow-sm">
+                <span className="text-xs text-gray-500 mr-2">Last updated:</span>
+                <span className="text-xs font-medium text-gray-700">
+                  {new Date(soilData.timestamp).toLocaleString()}
+                </span>
+              </div>
             </div>
 
             {/* Score Card */}
-            <div className="bg-white rounded shadow p-4">
-              <p className="text-center text-sm mb-1">
-                SOIL SCORE <Info size={12} className="inline ml-1" />
-              </p>
-              <p className="text-center text-5xl font-bold text-green-700 mb-4">{score}</p>
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center mb-2">
+                  <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
+                  <Info size={14} className="text-gray-400" />
+                </div>
+                <div className="relative">
+                  <div className="text-6xl font-bold text-green-600 mb-2">{score}</div>
+                  <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto">
+                    <div
+                      className="h-2 bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(score, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-y-2 text-center">
-                <div>
-                  <p className="text-sm">Moisture</p>
-                  <p className="text-lg font-semibold">{soilData.moisture_level?.toFixed(2)}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Droplets className="w-4 h-4 text-blue-600 mr-1" />
+                    <span className="text-xs font-medium text-blue-600">Moisture</span>
+                  </div>
+                  <div className="text-lg font-bold text-blue-700">{soilData.moisture_level?.toFixed(2)}%</div>
                 </div>
-                <div>
-                  <p className="text-sm">Nitrogen</p>
-                  <p className="text-lg font-semibold">{soilData.N?.toFixed(2)} ppm</p>
+                <div className="bg-green-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Leaf className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-xs font-medium text-green-600">Nitrogen</span>
+                  </div>
+                  <div className="text-lg font-bold text-green-700">{soilData.N?.toFixed(2)}</div>
+                  <div className="text-xs text-green-500">ppm</div>
                 </div>
-                <div>
-                  <p className="text-sm">Phosphorus</p>
-                  <p className="text-lg font-semibold">{soilData.P?.toFixed(2)} ppm</p>
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Zap className="w-4 h-4 text-purple-600 mr-1" />
+                    <span className="text-xs font-medium text-purple-600">Phosphorus</span>
+                  </div>
+                  <div className="text-lg font-bold text-purple-700">{soilData.P?.toFixed(2)}</div>
+                  <div className="text-xs text-purple-500">ppm</div>
                 </div>
-                <div>
-                  <p className="text-sm">Potassium</p>
-                  <p className="text-lg font-semibold">{soilData.K?.toFixed(2)} ppm</p>
+                <div className="bg-orange-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Activity className="w-4 h-4 text-orange-600 mr-1" />
+                    <span className="text-xs font-medium text-orange-600">Potassium</span>
+                  </div>
+                  <div className="text-lg font-bold text-orange-700">{soilData.K?.toFixed(2)}</div>
+                  <div className="text-xs text-orange-500">ppm</div>
                 </div>
               </div>
             </div>
 
             {/* Status Message */}
-            <div className="bg-white p-4 rounded shadow text-center text-green-700 font-semibold">
-              No urgent issues
+            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-4">
+              <div className="text-center text-white font-semibold">✅ No urgent issues detected</div>
             </div>
 
             {/* Recommendations */}
-            <div className="bg-white p-4 rounded shadow">
-              <h2 className="text-lg font-semibold mb-2">Recommendations</h2>
-              <ul className="space-y-1 text-sm">
-                <li className="flex items-start">
-                  ✅ <span className="ml-2">Maintain current pH level</span>
-                </li>
-                <li className="flex items-start">
-                  ✅ <span className="ml-2">Soil moisture is adequate, no irrigation needed</span>
-                </li>
-                <li className="flex items-start">
-                  ✅ <span className="ml-2">Apply phosphorus fertilizer: 15 kg/ha</span>
-                </li>
-                <li className="flex items-start">
-                  ✅ <span className="ml-2">Potassium levels are balanced</span>
-                </li>
-              </ul>
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                  <Info className="w-4 h-4 text-blue-600" />
+                </div>
+                Recommendations
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-start p-3 bg-green-50 rounded-lg">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-sm text-gray-700">Maintain current pH level</span>
+                </div>
+                <div className="flex items-start p-3 bg-green-50 rounded-lg">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-sm text-gray-700">Soil moisture is adequate, no irrigation needed</span>
+                </div>
+                <div className="flex items-start p-3 bg-green-50 rounded-lg">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-sm text-gray-700">Apply phosphorus fertilizer: 15 kg/ha</span>
+                </div>
+                <div className="flex items-start p-3 bg-green-50 rounded-lg">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-sm text-gray-700">Potassium levels are balanced</span>
+                </div>
+              </div>
             </div>
 
             {/* Soil Trends */}
-            <div className="bg-white p-4 rounded shadow">
-              <h2 className="text-lg font-semibold mb-2">Soil Trends</h2>
-              <div className="bg-[#f9f3e3] h-40 rounded flex items-center justify-center">
-                <div className="text-gray-500 text-sm">Trend graph placeholder</div>
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-2 bg-purple-100 rounded-lg mr-3">
+                  <Activity className="w-4 h-4 text-purple-600" />
+                </div>
+                Soil Trends
+              </h2>
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 h-40 rounded-lg flex items-center justify-center border border-amber-100">
+                <div className="text-center">
+                  <Activity className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                  <div className="text-amber-600 text-sm font-medium">Trend visualization coming soon</div>
+                </div>
               </div>
             </div>
           </>
         ) : (
           <>
             {/* Score Card - No Data */}
-            <div className="bg-white rounded shadow p-4">
-              <p className="text-center text-sm mb-1">
-                SOIL SCORE <Info size={12} className="inline ml-1" />
-              </p>
-              <p className="text-center text-5xl font-bold text-gray-400 mb-4">--</p>
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center mb-2">
+                  <span className="text-sm font-medium text-gray-400 mr-1">SOIL HEALTH SCORE</span>
+                  <Info size={14} className="text-gray-300" />
+                </div>
+                <div className="text-6xl font-bold text-gray-300 mb-2">--</div>
+                <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto"></div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-y-2 text-center">
-                <div>
-                  <p className="text-sm">Moisture</p>
-                  <p className="text-lg font-semibold text-gray-400">No data</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Droplets className="w-4 h-4 text-gray-400 mr-1" />
+                    <span className="text-xs font-medium text-gray-400">Moisture</span>
+                  </div>
+                  <div className="text-lg font-bold text-gray-400">No data</div>
                 </div>
-                <div>
-                  <p className="text-sm">Nitrogen</p>
-                  <p className="text-lg font-semibold text-gray-400">No data</p>
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Leaf className="w-4 h-4 text-gray-400 mr-1" />
+                    <span className="text-xs font-medium text-gray-400">Nitrogen</span>
+                  </div>
+                  <div className="text-lg font-bold text-gray-400">No data</div>
                 </div>
-                <div>
-                  <p className="text-sm">Phosphorus</p>
-                  <p className="text-lg font-semibold text-gray-400">No data</p>
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Zap className="w-4 h-4 text-gray-400 mr-1" />
+                    <span className="text-xs font-medium text-gray-400">Phosphorus</span>
+                  </div>
+                  <div className="text-lg font-bold text-gray-400">No data</div>
                 </div>
-                <div>
-                  <p className="text-sm">Potassium</p>
-                  <p className="text-lg font-semibold text-gray-400">No data</p>
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Activity className="w-4 h-4 text-gray-400 mr-1" />
+                    <span className="text-xs font-medium text-gray-400">Potassium</span>
+                  </div>
+                  <div className="text-lg font-bold text-gray-400">No data</div>
                 </div>
               </div>
             </div>
 
             {/* Status Message - No Data */}
-            <div className="bg-white p-4 rounded shadow text-center text-gray-500 font-semibold">
-              No data available for analysis
+            <div className="bg-gray-100 rounded-xl shadow-lg p-4">
+              <div className="text-center text-gray-500 font-semibold">📊 No data available for analysis</div>
             </div>
 
             {/* Recommendations - No Data */}
-            <div className="bg-white p-4 rounded shadow">
-              <h2 className="text-lg font-semibold mb-2">Recommendations</h2>
-              <div className="text-center text-gray-500 py-4">
-                No data available - please upload sensor data to get recommendations
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-2 bg-gray-100 rounded-lg mr-3">
+                  <Info className="w-4 h-4 text-gray-400" />
+                </div>
+                Recommendations
+              </h2>
+              <div className="text-center py-8">
+                <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
+                  <Info className="w-8 h-8 text-gray-400 mx-auto" />
+                </div>
+                <p className="text-gray-500 font-medium">No data available</p>
+                <p className="text-sm text-gray-400">Upload sensor data to get personalized recommendations</p>
               </div>
             </div>
 
             {/* Soil Trends - No Data */}
-            <div className="bg-white p-4 rounded shadow">
-              <h2 className="text-lg font-semibold mb-2">Soil Trends</h2>
-              <div className="bg-[#f9f3e3] h-40 rounded flex items-center justify-center">
-                <div className="text-gray-500 text-sm">No data available</div>
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-2 bg-gray-100 rounded-lg mr-3">
+                  <Activity className="w-4 h-4 text-gray-400" />
+                </div>
+                Soil Trends
+              </h2>
+              <div className="bg-gray-50 h-40 rounded-lg flex items-center justify-center border border-gray-200">
+                <div className="text-center">
+                  <Activity className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <div className="text-gray-500 text-sm">No data available</div>
+                </div>
               </div>
             </div>
           </>
         )}
-
         {/* Bottom Buttons */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <button
             onClick={onViewSensorClick}
-            className="bg-[#4b5563] hover:bg-[#374151] text-white w-full py-2 rounded"
+            className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
           >
             View Sensor Data
           </button>
           <button
             onClick={onUploadSensorClick}
-            className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded"
+            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
           >
             Upload Sensor Data
           </button>
         </div>
-
         <div className="h-2" /> {/* Spacer to prevent content from touching nav */}
       </div>
 
       {/* Bottom Nav */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
-        <button onClick={onHomeClick} className="flex flex-col items-center justify-center w-1/3">
-          <Home size={20} />
+      <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white shadow-lg">
+        <button
+          onClick={onHomeClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <Home size={20} className="text-gray-600" />
         </button>
-        <button onClick={onProfileClick} className="flex flex-col items-center justify-center w-1/3">
-          <User size={20} />
+        <button
+          onClick={onProfileClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <User size={20} className="text-gray-600" />
         </button>
-        <button onClick={() => onMenuClick((prev) => !prev)} className="flex flex-col items-center justify-center w-1/3">
-          <Menu size={20} />
+        <button
+          onClick={onMenuClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <Menu size={20} className="text-gray-600" />
         </button>
       </div>
     </div>

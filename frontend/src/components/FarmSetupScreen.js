@@ -1,16 +1,11 @@
 "use client"
 
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, User, MapPin, Sprout, Ruler, MilkIcon as Cow, Heart, MessageSquare, Eye } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
-export default function FarmSetupScreen({
-  onBackClick,
-  onAddCropsClick,
-  onThreadClick,
-  onManagePlotsClick, // ✅ New prop
-}) {
+export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThreadClick, onManagePlotsClick }) {
   const [user, setUser] = useState(null)
   const [farmExists, setFarmExists] = useState(false)
   const [farmName, setFarmName] = useState("")
@@ -29,11 +24,9 @@ export default function FarmSetupScreen({
   useEffect(() => {
     const fetchProfileAndFarm = async () => {
       if (!token) return
-
       try {
         const profileRes = await api.get("/api/profile/")
         setUser(profileRes.data)
-
         const farmRes = await api.get("/api/farm/")
         const farmData = farmRes.data
         setFarmExists(true)
@@ -54,7 +47,6 @@ export default function FarmSetupScreen({
         setLoading(false)
       }
     }
-
     fetchProfileAndFarm()
   }, [token])
 
@@ -62,9 +54,7 @@ export default function FarmSetupScreen({
     const fetchFavorites = async () => {
       const stored = localStorage.getItem("favorites")
       const favoriteIds = stored ? JSON.parse(stored) : []
-
       setLoadingFavorites(true)
-
       if (favoriteIds.length > 0) {
         try {
           const res = await api.get("/forum/threads/")
@@ -75,10 +65,8 @@ export default function FarmSetupScreen({
           console.error("Error fetching favorite threads:", err)
         }
       }
-
       setLoadingFavorites(false)
     }
-
     fetchFavorites()
   }, [])
 
@@ -93,10 +81,9 @@ export default function FarmSetupScreen({
         farm_name: farmName,
         location,
         crop_types: cropTypes,
-        size: parseFloat(size),
+        size: Number.parseFloat(size),
         has_livestock: hasLivestock === "yes",
       })
-
       setFarmExists(true)
       setIsEditing(false)
       showSuccess("Farm added successfully!")
@@ -112,10 +99,9 @@ export default function FarmSetupScreen({
         farm_name: farmName,
         location,
         crop_types: cropTypes,
-        size: parseFloat(size),
+        size: Number.parseFloat(size),
         has_livestock: hasLivestock === "yes",
       })
-
       showSuccess("Farm updated successfully!")
       setIsEditing(false)
     } catch (err) {
@@ -128,97 +114,262 @@ export default function FarmSetupScreen({
 
   return (
     <div className="flex flex-col h-full pb-12">
-      <div className="p-4 bg-white flex items-center">
-        <button onClick={onBackClick} className="mr-2">
+      {/* Top Header */}
+      <div className="p-4 bg-white flex items-center shadow-sm">
+        <button onClick={onBackClick} className="mr-2 p-1 hover:bg-gray-100 rounded-full transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-semibold flex-1 text-center">User Management</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-6">
+      <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-4 space-y-4">
+        {/* User Details Section */}
         {user && (
-          <>
-            <h2 className="text-md font-semibold mb-1 text-gray-800">User Details</h2>
-            <div className="bg-white rounded shadow p-4 mb-6 text-sm text-gray-800 space-y-1">
-              <div><span className="font-medium">Name:</span> {user.first_name} {user.last_name}</div>
-              <div><span className="font-medium">Email:</span> {user.email}</div>
-              {user.phone && <div><span className="font-medium">Phone:</span> {user.phone}</div>}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                <User className="w-5 h-5 text-blue-600" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-800">User Details</h2>
             </div>
-          </>
-        )}
-
-        {successMessage && (
-          <div className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
-            <svg className="fill-current w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path d="M10 15a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0-10a1 1 0 00-1 1v4a1 1 0 002 0V6a1 1 0 00-1-1zm0-3a9 9 0 100 18 9 9 0 000-18z" />
-            </svg>
-            <span className="block sm:inline">{successMessage}</span>
+            <div className="space-y-3">
+              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium text-gray-600 w-16">Name:</span>
+                <span className="text-sm text-gray-800">
+                  {user.first_name} {user.last_name}
+                </span>
+              </div>
+              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium text-gray-600 w-16">Email:</span>
+                <span className="text-sm text-gray-800">{user.email}</span>
+              </div>
+              {user.phone && (
+                <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-600 w-16">Phone:</span>
+                  <span className="text-sm text-gray-800">{user.phone}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        <div className="w-full space-y-3">
-          <h2 className="text-md font-semibold mb-1 text-gray-800">Farm Details</h2>
-          <input type="text" placeholder="Farm Name" className="w-full bg-white border border-gray-300 p-2 rounded" value={farmName} onChange={(e) => setFarmName(e.target.value)} readOnly={!isEditing} />
-          <input type="text" placeholder="Location" className="w-full bg-white border border-gray-300 p-2 rounded" value={location} onChange={(e) => setLocation(e.target.value)} readOnly={!isEditing} />
-          <input type="text" placeholder="Crop Types" className="w-full bg-white border border-gray-300 p-2 rounded" value={cropTypes} onChange={(e) => setCropTypes(e.target.value)} readOnly={!isEditing} />
-          <input type="number" placeholder="Size (in hectares)" className="w-full bg-white border border-gray-300 p-2 rounded" value={size} onChange={(e) => setSize(e.target.value)} readOnly={!isEditing} />
-          <select value={hasLivestock} onChange={(e) => setHasLivestock(e.target.value)} disabled={!isEditing} className="w-full bg-white border border-gray-300 p-2 rounded appearance-none">
-            <option value="" disabled>Livestock</option>
-            <option value="yes">Yes I have livestock</option>
-            <option value="no">No I do not have livestock</option>
-          </select>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-4">
+            <div className="flex items-center text-white">
+              <div className="w-5 h-5 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+                <span className="text-green-600 text-xs font-bold">✓</span>
+              </div>
+              <span className="font-medium">{successMessage}</span>
+            </div>
+          </div>
+        )}
 
-          {!farmExists ? (
-            <button onClick={handleAddFarm} className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2">Add Farm</button>
-          ) : (
-            <>
-              {!isEditing ? (
-                <button onClick={() => setIsEditing(true)} className="bg-blue-500 hover:bg-blue-600 text-white w-full py-2 rounded mt-2">Edit Farm</button>
-              ) : (
-                <button onClick={handleUpdateFarmAndExitEditMode} className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded mt-2">Save Farm</button>
-              )}
-
+        {/* Farm Details Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg mr-3">
+                <Sprout className="w-5 h-5 text-green-600" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-800">Farm Details</h2>
+            </div>
+            {farmExists && !isEditing && (
               <button
-  onClick={onManagePlotsClick}
-  className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded"
->
-  Manage Plots
-</button>
-
-<button
-  onClick={onAddCropsClick}
-  className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-2 rounded"
->
-  Manage Crops
-</button>
-             
-            </>
-          )}
-          <button onClick={onBackClick} className="text-sm text-gray-700 hover:underline">Back</button>
-        </div>
-
-        <div className="mt-8">
-          <h2 className="text-md font-semibold mb-1 text-gray-800">Favourited Threads</h2>
-          <div className="space-y-3">
-            {loadingFavorites ? (
-              <LoadingSpinner />
-            ) : favoriteThreads.length === 0 ? (
-              <div className="text-sm text-gray-600">No favourites yet.</div>
-            ) : (
-              favoriteThreads.map((thread) => (
-                <div
-                  key={thread.id}
-                  className="bg-white rounded shadow p-3 cursor-pointer hover:bg-gray-100 transition"
-                  onClick={() => onThreadClick(thread.id)}
-                >
-                  <div className="font-semibold text-sm">{thread.title}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {thread.replies_count ?? 0} replies • {thread.views_count ?? 0} views
-                  </div>
-                </div>
-              ))
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
+              >
+                Edit Farm
+              </button>
             )}
           </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Farm Name</label>
+              <div className="relative">
+                <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Enter farm name"
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
+                    isEditing
+                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                  value={farmName}
+                  onChange={(e) => setFarmName(e.target.value)}
+                  readOnly={!isEditing}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Enter location"
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
+                    isEditing
+                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  readOnly={!isEditing}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Crop Types</label>
+              <div className="relative">
+                <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Enter crop types"
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
+                    isEditing
+                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                  value={cropTypes}
+                  onChange={(e) => setCropTypes(e.target.value)}
+                  readOnly={!isEditing}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Size (hectares)</label>
+              <div className="relative">
+                <Ruler className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="number"
+                  placeholder="Enter size in hectares"
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
+                    isEditing
+                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                  value={size}
+                  onChange={(e) => setSize(e.target.value)}
+                  readOnly={!isEditing}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Livestock</label>
+              <div className="relative">
+                <Cow className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={hasLivestock}
+                  onChange={(e) => setHasLivestock(e.target.value)}
+                  disabled={!isEditing}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm appearance-none transition-colors ${
+                    isEditing
+                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <option value="" disabled>
+                    Select livestock option
+                  </option>
+                  <option value="yes">Yes, I have livestock</option>
+                  <option value="no">No, I do not have livestock</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-6 space-y-3">
+            {!farmExists ? (
+              <button
+                onClick={handleAddFarm}
+                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+              >
+                Add Farm
+              </button>
+            ) : (
+              <>
+                {isEditing && (
+                  <button
+                    onClick={handleUpdateFarmAndExitEditMode}
+                    className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                  >
+                    Save Farm
+                  </button>
+                )}
+                <button
+                  onClick={onManagePlotsClick}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                >
+                  Manage Plots
+                </button>
+                <button
+                  onClick={onAddCropsClick}
+                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                >
+                  Manage Crops
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Favorited Threads Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-red-100 rounded-lg mr-3">
+              <Heart className="w-5 h-5 text-red-600" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800">Favorited Threads</h2>
+          </div>
+
+          {loadingFavorites ? (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : favoriteThreads.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
+                <Heart className="w-8 h-8 text-gray-400 mx-auto" />
+              </div>
+              <p className="text-gray-500 font-medium">No favorites yet</p>
+              <p className="text-sm text-gray-400">Start exploring the forum to add favorites</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {favoriteThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  className="p-4 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors duration-200 border border-gray-100 hover:border-gray-200"
+                  onClick={() => onThreadClick(thread.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-800 text-sm mb-2">{thread.title}</h3>
+                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        <div className="flex items-center">
+                          <MessageSquare className="w-3 h-3 mr-1" />
+                          <span>{thread.replies_count ?? 0} replies</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Eye className="w-3 h-3 mr-1" />
+                          <span>{thread.views_count ?? 0} views</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Heart className="w-4 h-4 text-red-500 fill-current" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="h-6" />
