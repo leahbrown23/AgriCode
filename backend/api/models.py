@@ -23,10 +23,28 @@ class Farm(models.Model):
     def __str__(self):
         return f"{self.farm_name} ({self.user.email})"
     
+class Plot(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    plot_id = models.CharField(max_length=50)  # Farmer's local plot number
+    unique_plot_key = models.CharField(max_length=100, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    size = models.DecimalField(max_digits=10, decimal_places=2)
+    location = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.unique_plot_key:
+            self.unique_plot_key = f"P{self.plot_id}U{self.user.id}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.plot_id} (User {self.user.id})"
+    
 class Crop(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     farm = models.ForeignKey(Farm, on_delete=models.CASCADE)
     plot_number = models.CharField(max_length=100)
+    plot = models.ForeignKey(Plot, to_field='unique_plot_key',on_delete=models.CASCADE, null=True)  # ForeignKey to unique Plot
     crop_type = models.CharField(max_length=100)
     crop_variety = models.CharField(max_length=100)
 
@@ -47,19 +65,3 @@ class SoilSensorReading(models.Model):
     def __str__(self):
         return f"{self.plot_id} - {self.timestamp}"
     
-class Plot(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    plot_id = models.CharField(max_length=50)  # Farmer's local plot number
-    unique_plot_key = models.CharField(max_length=100, unique=True, blank=True)
-    description = models.TextField(blank=True)
-    size = models.DecimalField(max_digits=10, decimal_places=2)
-    location = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def save(self, *args, **kwargs):
-        if not self.unique_plot_key:
-            self.unique_plot_key = f"P{self.plot_id}U{self.user.id}"
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.plot_id} (User {self.user.id})"

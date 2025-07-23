@@ -39,6 +39,11 @@ class FarmSerializer(serializers.ModelSerializer):
         read_only_fields = ['user']
 
 class CropSerializer(serializers.ModelSerializer):
+    plot = serializers.SlugRelatedField(
+        slug_field='unique_plot_key',
+        queryset=Plot.objects.all()
+    )
+    
     class Meta:
         model = Crop
         fields = '__all__'

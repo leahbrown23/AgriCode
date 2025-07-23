@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, User, Menu } from "lucide-react"
+import { ArrowLeft, Home, Menu, User } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -95,10 +95,15 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     }
   }
 
-  const getPlotDisplayName = (plotId) => {
-    const plot = userPlots.find((p) => p.plot_id === plotId)
-    return plot ? `${plot.plot_id} - ${plot.location}` : plotId
-  }
+const getPlotDisplayName = (uniqueId) => {
+  const plot = userPlots.find((p) => p.unique_plot_id === uniqueId)
+  return plot ? `Plot ${plot.plot_id} - ${plot.location}` : uniqueId
+}
+
+const getRawPlotId = (uniqueKey) => {
+  // "P100U3" => "100"
+  return uniqueKey.split("U")[0].replace("P", "")
+}
 
   const handleAddCrop = async () => {
     if (!selectedPlotId || !cropType || !cropVariety) {
@@ -108,7 +113,8 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
 
     try {
       await api.post("/api/farm/crops/", {
-        plot_number: selectedPlotId,
+        plot_number: getRawPlotId(selectedPlotId),
+        plot: selectedPlotId,
         crop_type: cropType,
         crop_variety: cropVariety,
       })
@@ -134,6 +140,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       // Using the correct endpoint based on your Django setup
       await api.put(`/api/farm/crops/${editingCrop.id}/`, {
         plot_number: editingCrop.plot_number,
+        plot: editingCrop.plot,
         crop_type: editingCrop.crop_type,
         crop_variety: editingCrop.crop_variety,
       })
@@ -203,7 +210,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
             Select Plot
           </option>
           {userPlots.map((plot) => (
-            <option key={plot.id} value={plot.plot_id}>
+            <option key={plot.id} value={plot.unique_plot_key}>
               {plot.plot_id} - {plot.location} ({plot.size} ha)
             </option>
           ))}
