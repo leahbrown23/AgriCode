@@ -124,6 +124,19 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     return uniqueKey.split("U")[0].replace("P", "")
   }
 
+  const getAvailablePlots = () => {
+    // Get plot IDs that already have crops
+    const occupiedPlotIds = userCrops.map((crop) => crop.plot_number?.toString())
+
+    // Filter out plots that already have crops
+    return userPlots.filter((plot) => !occupiedPlotIds.includes(plot.plot_id?.toString()))
+  }
+
+  const isPlotOccupied = (plotId) => {
+    const occupiedPlotIds = userCrops.map((crop) => crop.plot_number?.toString())
+    return occupiedPlotIds.includes(plotId?.toString())
+  }
+
   const handleAddCrop = async () => {
     if (!selectedPlotId || !cropType || !cropVariety) {
       setErrorMessage("Please fill in all fields.")
@@ -131,16 +144,26 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       return
     }
 
+    // Check if plot already has a crop
+    const plotId = getRawPlotId(selectedPlotId)
+    if (isPlotOccupied(plotId)) {
+      setErrorMessage(
+        "A crop already belongs to this plot, please remove the crop linked to the plot before adding a new crop",
+      )
+      setTimeout(() => setErrorMessage(""), 5000)
+      return
+    }
+
     try {
       console.log("🔍 Adding crop:", {
-        plot_number: getRawPlotId(selectedPlotId),
+        plot_number: plotId,
         plot: selectedPlotId,
         crop_type: cropType,
         crop_variety: cropVariety,
       })
 
       await api.post("/api/farm/crops/", {
-        plot_number: getRawPlotId(selectedPlotId),
+        plot_number: plotId,
         plot: selectedPlotId,
         crop_type: cropType,
         crop_variety: cropVariety,
@@ -165,7 +188,8 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
 
         if (typeof err.response.data === "string") {
           if (err.response.data.includes("IntegrityError") || err.response.data.includes("UNIQUE constraint")) {
-            errorMessage = "Duplicate constraint error (but database appears empty - check backend logic)"
+            errorMessage =
+              "A crop already belongs to this plot, please remove the crop linked to the plot before adding a new crop"
           } else if (err.response.data.includes("<!DOCTYPE html>")) {
             errorMessage = "Server returned HTML error page - check Django logs"
           } else {
@@ -302,7 +326,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
           </div>
 
           {/* No Plots Warning */}
-          {userPlots.length === 0 && (
+          {userPlots.length === 0 ? (
             <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <div className="flex items-center">
                 <AlertTriangle className="w-5 h-5 text-yellow-600 mr-3" />
@@ -312,7 +336,19 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
                 </div>
               </div>
             </div>
-          )}
+          ) : getAvailablePlots().length === 0 ? (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 text-blue-600 mr-3" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">All plots have crops assigned</p>
+                  <p className="text-xs text-blue-600">
+                    Remove existing crops to assign new ones, or create more plots.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-4">
             <div>
@@ -327,7 +363,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
                   <option value="" disabled>
                     Select Plot
                   </option>
-                  {userPlots.map((plot) => (
+                  {getAvailablePlots().map((plot) => (
                     <option key={plot.id} value={plot.unique_plot_key}>
                       {plot.plot_id} - {plot.location} ({Number.parseFloat(plot.size).toFixed(2)} ha)
                     </option>
@@ -373,7 +409,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
 
             <button
               onClick={handleAddCrop}
-              disabled={userPlots.length === 0}
+              disabled={userPlots.length === 0 || getAvailablePlots().length === 0}
               className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02] disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed disabled:transform-none"
             >
               Add Crop

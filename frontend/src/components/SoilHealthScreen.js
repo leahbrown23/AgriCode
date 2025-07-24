@@ -1,8 +1,9 @@
 "use client"
 
-import { Activity, ArrowLeft, Droplets, Home, Info, Leaf, Menu, User, Zap } from "lucide-react"
+import { ArrowLeft, Home, Info, Menu, User, Droplets, Leaf, Zap, Activity } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
+import LoadingSpinner from "./LoadingSpinner"
 
 export default function SoilHealthScreen({
   onBackClick,
@@ -16,8 +17,8 @@ export default function SoilHealthScreen({
   const [soilData, setSoilData] = useState(null)
   const [plotOptions, setPlotOptions] = useState([])
   const [selectedPlot, setSelectedPlot] = useState("")
+  const [isLoadingPlotData, setIsLoadingPlotData] = useState(false)
   const [showExplanation, setShowExplanation] = useState(false)
-
 
   // Fetch user profile
   useEffect(() => {
@@ -32,72 +33,69 @@ export default function SoilHealthScreen({
     fetchProfile()
   }, [])
 
-// Fetch user's crops to build dropdown with plot_number and crop_type
-useEffect(() => {
-  const fetchCrops = async () => {
-    try {
-      const res = await api.get("/api/farm/crops/")
-      const cropsData = res.data || []
-      const formattedOptions = cropsData.map((crop) => ({
-        value: crop.plot_number,
-        label: `Plot ${crop.plot_number} - ${crop.crop_type}`,
-      }))
-      setPlotOptions(formattedOptions)
-      if (formattedOptions.length > 0) {
-        const savedPlot = localStorage.getItem("selectedPlot")
-      if (savedPlot && formattedOptions.find((opt) => opt.value === savedPlot)) {
-        setSelectedPlot(savedPlot)
-      } else {
-        setSelectedPlot(formattedOptions[0].value)
-      }
-      }
-    } catch (err) {
-      console.error("Failed to fetch crops", err)
-      setPlotOptions([])
-      setSelectedPlot("")
-    }
-  }
-  fetchCrops()
-}, [])
+  // Fetch user plots
+  useEffect(() => {
+    const fetchPlots = async () => {
+      try {
+        const res = await api.get("/api/farm/plots/")
+        // Handle different response formats and ensure it's always an array
+        const plotsData = res.data?.results || res.data || []
+        const plotsArray = Array.isArray(plotsData) ? plotsData : []
 
+        // Extract plot_id values for the dropdown
+        const plotIds = plotsArray.map((plot) => plot.plot_id)
+        setPlotOptions(plotIds)
+        setSelectedPlot(plotIds[0] || "")
+      } catch (err) {
+        console.error("Failed to fetch plots", err)
+        // Set empty array if fetch fails
+        setPlotOptions([])
+        setSelectedPlot("")
+      }
+    }
+    fetchPlots()
+  }, [])
 
   // Fetch soil data for selected plot
-  useEffect(() => {
-    const fetchSoilData = async () => {
-      if (!selectedPlot) return
-      try {
-        const res = await api.get(`/api/latest-reading/?plot_number=${selectedPlot}`)
-        setSoilData(res.data)
-      } catch (err) {
-        console.error("Error fetching soil data", err)
-        setSoilData(null)
-      }
+  const fetchSoilData = async () => {
+    if (!selectedPlot) return
+    setIsLoadingPlotData(true)
+    try {
+      const res = await api.get(`/api/latest-reading/?plot_number=${selectedPlot}`)
+      setSoilData(res.data)
+    } catch (err) {
+      console.error("Error fetching soil data", err)
+      setSoilData(null)
+    } finally {
+      setIsLoadingPlotData(false)
     }
+  }
+
+  useEffect(() => {
     if (selectedPlot) {
       fetchSoilData()
     }
   }, [selectedPlot])
 
-  //const score = soilData ? calculateSoilScore(soilData) : 0
+  const score = soilData ? calculateSoilScore(soilData) : 0
+  const classification = getClassification(score)
 
-function calculateSoilScore(data) {
-  const pH = parseFloat(data.pH_level) || 0
-  const nitrogen = parseFloat(data.N) || 0
-  const phosphorus = parseFloat(data.P) || 0
-  const potassium = parseFloat(data.K) || 0
+  function calculateSoilScore(data) {
+    const { moisture_level, N, P, K, pH_level } = data
+    // Updated weights to include Potassium: moisture 25%, N 30%, P 25%, K 20%
+    const score = (pH_level || 0) * 0.2 + N * 0.35 + P * 0.25 + (K || 0) * 0.2
+    return Math.round(score)
+  }
 
-  const score = Math.round(pH * 0.2 + nitrogen * 0.35 + phosphorus * 0.25 + potassium * 0.2)
-
-  let classification = ""
-  if (score >= 80) classification = "Healthy"
-  else if (score >= 60) classification = "Moderate"
-  else classification = "Poor"
-
-  return { score, classification }
-}
-
-const { score, classification } = soilData ? calculateSoilScore(soilData) : { score: 0, classification: "" }
-
+  function getClassification(score) {
+    if (score >= 80) {
+      return "Healthy"
+    } else if (score >= 60) {
+      return "Moderate"
+    } else {
+      return "Poor"
+    }
+  }
 
   return (
     <div className="flex flex-col h-full pb-12">
@@ -122,25 +120,37 @@ const { score, classification } = soilData ? calculateSoilScore(soilData) : { sc
           <select
             className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
             value={selectedPlot}
-            onChange={(e) => {
-              const value = e.target.value
-              setSelectedPlot(value)
-              localStorage.setItem("selectedPlot", value)
-            }}
+            onChange={(e) => setSelectedPlot(e.target.value)}
             disabled={plotOptions.length === 0}
           >
-          {plotOptions.length > 0 ? (
-            plotOptions.map((plot) => (
-              <option key={plot.value} value={plot.value}>
-                {plot.label}
+            {plotOptions.length > 0 ? (
+              plotOptions.map((plot) => (
+                <option key={plot} value={plot}>
+                  Plot {plot}
+                </option>
+              ))
+            ) : (
+              <option value="" disabled>
+                No plots available
               </option>
-            ))
-          ) : (
-            <option value="" disabled>No plots available</option>
-          )}
+            )}
           </select>
         </div>
-        {soilData ? (
+        {isLoadingPlotData ? (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center mb-2">
+                <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
+                <Info size={14} className="text-gray-300" />
+              </div>
+              <div className="text-6xl font-bold text-gray-300 mb-2">--</div>
+              <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto"></div>
+            </div>
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          </div>
+        ) : soilData ? (
           <>
             {/* Date Updated */}
             <div className="text-right">
@@ -155,45 +165,48 @@ const { score, classification } = soilData ? calculateSoilScore(soilData) : { sc
             {/* Score Card */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="text-center mb-6">
-              <div className="flex items-center justify-center mb-2">
-                <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
-                <button onClick={() => setShowExplanation(true)} className="text-gray-400 hover:text-gray-600">
-                  <Info size={14} />
-                </button>
-                {showExplanation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                  <div className="bg-white rounded-xl shadow-lg max-w-sm p-6 text-sm text-gray-800">
-                    <h2 className="text-lg font-bold mb-3">How Soil Score is Calculated</h2>
-                    <p className="mb-2">
-                      The Soil Health Score (SHS) is a weighted average of key soil nutrients and pH:
-                    </p>
-                    <ul className="list-disc list-inside mb-2">
-                      <li>pH level: 20%</li>
-                      <li>Nitrogen (N): 35%</li>
-                      <li>Phosphorus (P): 25%</li>
-                      <li>Potassium (K): 20%</li>
-                    </ul>
-                    <p className="mb-2">
-                      Formula: <code>(pH × 0.2) + (N × 0.35) + (P × 0.25) + (K × 0.2)</code>
-                    </p>
-                    <p className="mt-4">
-                      <strong>Score Classification:</strong><br />
-                      <span className="text-green-700">80–100:</span> Healthy<br />
-                      <span className="text-yellow-600">60–79:</span> Moderate<br />
-                      <span className="text-red-600">Below 60:</span> Poor
-                    </p>
-                    <div className="text-right mt-6">
-                      <button
-                        onClick={() => setShowExplanation(false)}
-                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition"
-                      >
-                        Close
-                      </button>
+                <div className="flex items-center justify-center mb-2">
+                  <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
+                  <button onClick={() => setShowExplanation(true)} className="text-gray-400 hover:text-gray-600">
+                    <Info size={14} />
+                  </button>
+                  {showExplanation && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                      <div className="bg-white rounded-xl shadow-lg max-w-sm p-6 text-sm text-gray-800">
+                        <h2 className="text-lg font-bold mb-3">How Soil Score is Calculated</h2>
+                        <p className="mb-2">
+                          The Soil Health Score (SHS) is a weighted average of key soil nutrients and pH:
+                        </p>
+                        <ul className="list-disc list-inside mb-2">
+                          <li>pH level: 20%</li>
+                          <li>Nitrogen (N): 35%</li>
+                          <li>Phosphorus (P): 25%</li>
+                          <li>Potassium (K): 20%</li>
+                        </ul>
+                        <p className="mb-2">
+                          Formula: <code>(pH × 0.2) + (N × 0.35) + (P × 0.25) + (K × 0.2)</code>
+                        </p>
+                        <p className="mt-4">
+                          <strong>Score Classification:</strong>
+                          <br />
+                          <span className="text-green-700">80–100:</span> Healthy
+                          <br />
+                          <span className="text-yellow-600">60–79:</span> Moderate
+                          <br />
+                          <span className="text-red-600">Below 60:</span> Poor
+                        </p>
+                        <div className="text-right mt-6">
+                          <button
+                            onClick={() => setShowExplanation(false)}
+                            className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
-              </div>
                 <div className="relative">
                   <div className="text-6xl font-bold text-green-600 mb-2">{score}</div>
                   {classification && (
@@ -204,8 +217,8 @@ const { score, classification } = soilData ? calculateSoilScore(soilData) : { sc
                           classification === "Healthy"
                             ? "text-green-600"
                             : classification === "Moderate"
-                            ? "text-yellow-600"
-                            : "text-red-600"
+                              ? "text-yellow-600"
+                              : "text-red-600"
                         }`}
                       >
                         {classification}
@@ -221,7 +234,15 @@ const { score, classification } = soilData ? calculateSoilScore(soilData) : { sc
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="w-4 h-4 bg-yellow-500 rounded-full mr-1"></div>
+                    <span className="text-xs font-medium text-yellow-600">pH Level</span>
+                  </div>
+                  <div className="text-lg font-bold text-yellow-700">{soilData.pH_level?.toFixed(2)}</div>
+                  <div className="text-xs text-yellow-500">pH</div>
+                </div>
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
                   <div className="flex items-center justify-center mb-2">
                     <Droplets className="w-4 h-4 text-blue-600 mr-1" />
@@ -245,7 +266,7 @@ const { score, classification } = soilData ? calculateSoilScore(soilData) : { sc
                   <div className="text-lg font-bold text-purple-700">{soilData.P?.toFixed(2)}</div>
                   <div className="text-xs text-purple-500">ppm</div>
                 </div>
-                <div className="bg-orange-50 rounded-lg p-4 text-center">
+                <div className="bg-orange-50 rounded-lg p-4 text-center col-span-2">
                   <div className="flex items-center justify-center mb-2">
                     <Activity className="w-4 h-4 text-orange-600 mr-1" />
                     <span className="text-xs font-medium text-orange-600">Potassium</span>
@@ -326,7 +347,14 @@ const { score, classification } = soilData ? calculateSoilScore(soilData) : { sc
                 <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto"></div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="w-4 h-4 bg-gray-400 rounded-full mr-1"></div>
+                    <span className="text-xs font-medium text-gray-400">pH Level</span>
+                  </div>
+                  <div className="text-lg font-bold text-gray-400">No data</div>
+                </div>
                 <div className="bg-gray-50 rounded-lg p-4 text-center">
                   <div className="flex items-center justify-center mb-2">
                     <Droplets className="w-4 h-4 text-gray-400 mr-1" />
@@ -348,7 +376,7 @@ const { score, classification } = soilData ? calculateSoilScore(soilData) : { sc
                   </div>
                   <div className="text-lg font-bold text-gray-400">No data</div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <div className="bg-gray-50 rounded-lg p-4 text-center col-span-2">
                   <div className="flex items-center justify-center mb-2">
                     <Activity className="w-4 h-4 text-gray-400 mr-1" />
                     <span className="text-xs font-medium text-gray-400">Potassium</span>

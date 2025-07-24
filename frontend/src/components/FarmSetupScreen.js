@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, User, MapPin, Sprout, Ruler, MilkIcon as Cow, Heart, MessageSquare, Eye } from "lucide-react"
+import { ArrowLeft, User, MapPin, Sprout, Ruler, MilkIcon as Cow, Star , MessageSquare, Eye } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -304,73 +304,76 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                     Save Farm
                   </button>
                 )}
-                <button
-                  onClick={onManagePlotsClick}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
-                >
-                  Manage Plots
-                </button>
-                <button
-                  onClick={onAddCropsClick}
-                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
-                >
-                  Manage Crops
-                </button>
+               <button
+                onClick={onManagePlotsClick}
+                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+              >
+                Manage Plots
+              </button>
+
+              <button
+                onClick={onAddCropsClick}
+                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+              >
+                Manage Crops
+              </button>
+
               </>
             )}
           </div>
         </div>
 
         {/* Favorited Threads Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <div className="flex items-center mb-4">
-            <div className="p-2 bg-red-100 rounded-lg mr-3">
-              <Heart className="w-5 h-5 text-red-600" />
-            </div>
-            <h2 className="text-lg font-bold text-gray-800">Favorited Threads</h2>
-          </div>
+<div className="bg-white rounded-xl shadow-lg p-6">
+  <div className="flex items-center mb-4">
+    <div className="p-2 bg-yellow-100 rounded-lg mr-3">
+      <Star className="w-5 h-5 text-yellow-500" />
+    </div>
+    <h2 className="text-lg font-bold text-gray-800">Favorited Threads</h2>
+  </div>
 
-          {loadingFavorites ? (
-            <div className="flex justify-center py-8">
-              <LoadingSpinner />
-            </div>
-          ) : favoriteThreads.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
-                <Heart className="w-8 h-8 text-gray-400 mx-auto" />
-              </div>
-              <p className="text-gray-500 font-medium">No favorites yet</p>
-              <p className="text-sm text-gray-400">Start exploring the forum to add favorites</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {favoriteThreads.map((thread) => (
-                <div
-                  key={thread.id}
-                  className="p-4 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors duration-200 border border-gray-100 hover:border-gray-200"
-                  onClick={() => onThreadClick(thread.id)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800 text-sm mb-2">{thread.title}</h3>
-                      <div className="flex items-center space-x-4 text-xs text-gray-500">
-                        <div className="flex items-center">
-                          <MessageSquare className="w-3 h-3 mr-1" />
-                          <span>{thread.replies_count ?? 0} replies</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Eye className="w-3 h-3 mr-1" />
-                          <span>{thread.views_count ?? 0} views</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Heart className="w-4 h-4 text-red-500 fill-current" />
-                  </div>
+  {loadingFavorites ? (
+    <div className="flex justify-center py-8">
+      <LoadingSpinner />
+    </div>
+  ) : favoriteThreads.length === 0 ? (
+    <div className="text-center py-8">
+      <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
+        <Star className="w-8 h-8 text-gray-400 mx-auto" />
+      </div>
+      <p className="text-gray-500 font-medium">No favorites yet</p>
+      <p className="text-sm text-gray-400">Start exploring the forum to add favorites</p>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {favoriteThreads.map((thread) => (
+        <div
+          key={thread.id}
+          className="p-4 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors duration-200 border border-gray-100 hover:border-gray-200"
+          onClick={() => onThreadClick(thread.id)}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-800 text-sm mb-2">{thread.title}</h3>
+              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                <div className="flex items-center">
+                  <MessageSquare className="w-3 h-3 mr-1" />
+                  <span>{thread.replies_count ?? 0} replies</span>
                 </div>
-              ))}
+                <div className="flex items-center">
+                  <Eye className="w-3 h-3 mr-1" />
+                  <span>{thread.views_count ?? 0} views</span>
+                </div>
+              </div>
             </div>
-          )}
+            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+          </div>
         </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
         <div className="h-6" />
       </div>
