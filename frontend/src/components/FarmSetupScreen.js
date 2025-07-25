@@ -329,7 +329,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
     <div className="p-2 bg-yellow-100 rounded-lg mr-3">
       <Star className="w-5 h-5 text-yellow-500" />
     </div>
-    <h2 className="text-lg font-bold text-gray-800">Favorited Threads</h2>
+    <h2 className="text-lg font-bold text-gray-800">My Threads</h2>
   </div>
 
   {loadingFavorites ? (

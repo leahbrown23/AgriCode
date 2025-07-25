@@ -16,7 +16,10 @@ export default function SoilHealthScreen({
   const [user, setUser] = useState(null)
   const [soilData, setSoilData] = useState(null)
   const [plotOptions, setPlotOptions] = useState([])
-  const [selectedPlot, setSelectedPlot] = useState("")
+  const [selectedPlot, setSelectedPlot] = useState(() => {
+    // Load saved plot from localStorage on component mount
+    return localStorage.getItem('selectedSoilPlot') || ""
+  })
   const [isLoadingPlotData, setIsLoadingPlotData] = useState(false)
   const [showExplanation, setShowExplanation] = useState(false)
 
@@ -45,7 +48,19 @@ export default function SoilHealthScreen({
         // Extract plot_id values for the dropdown
         const plotIds = plotsArray.map((plot) => plot.plot_id)
         setPlotOptions(plotIds)
-        setSelectedPlot(plotIds[0] || "")
+        
+        // Only set default if no saved plot exists
+        const savedPlot = localStorage.getItem('selectedSoilPlot')
+        if (!savedPlot && plotIds.length > 0) {
+          const defaultPlot = plotIds[0] || ""
+          setSelectedPlot(defaultPlot)
+          localStorage.setItem('selectedSoilPlot', defaultPlot)
+        } else if (savedPlot && !plotIds.includes(savedPlot)) {
+          // If saved plot no longer exists, use first available
+          const defaultPlot = plotIds[0] || ""
+          setSelectedPlot(defaultPlot)
+          localStorage.setItem('selectedSoilPlot', defaultPlot)
+        }
       } catch (err) {
         console.error("Failed to fetch plots", err)
         // Set empty array if fetch fails
@@ -62,6 +77,7 @@ export default function SoilHealthScreen({
     setIsLoadingPlotData(true)
     try {
       const res = await api.get(`/api/latest-reading/?plot_number=${selectedPlot}`)
+      console.log("API Response:", res.data); // Add debugging
       setSoilData(res.data)
     } catch (err) {
       console.error("Error fetching soil data", err)
@@ -82,9 +98,14 @@ export default function SoilHealthScreen({
 
   function calculateSoilScore(data) {
     const { moisture_level, N, P, K, pH_level } = data
-    // Updated weights to include Potassium: moisture 25%, N 30%, P 25%, K 20%
-    const score = (pH_level || 0) * 0.2 + N * 0.35 + P * 0.25 + (K || 0) * 0.2
-    return Math.round(score)
+    
+    // Convert pH to number and provide fallback
+    const pH = pH_level != null ? Number(pH_level) : 0;
+    
+    console.log("Score calculation - pH:", pH, "N:", N, "P:", P, "K:", K);
+    
+    const score = pH * 0.2 + N * 0.35 + P * 0.25 + (K || 0) * 0.2;
+    return Math.round(score);
   }
 
   function getClassification(score) {
@@ -109,6 +130,22 @@ export default function SoilHealthScreen({
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-4 space-y-4">
+        {/* Action Buttons - Moved to Top */}
+        <div className="space-y-3">
+          <button
+            onClick={onUploadSensorClick}
+            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+          >
+            Upload Sensor Data
+          </button>
+          <button
+            onClick={onViewSensorClick}
+            className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+          >
+            View Sensor Data
+          </button>
+        </div>
+
         {/* Plot Filter */}
         <div className="bg-white rounded-xl shadow-lg p-4">
           <div className="flex items-center mb-3">
@@ -120,7 +157,12 @@ export default function SoilHealthScreen({
           <select
             className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
             value={selectedPlot}
-            onChange={(e) => setSelectedPlot(e.target.value)}
+            onChange={(e) => {
+              const newPlot = e.target.value
+              setSelectedPlot(newPlot)
+              // Save selected plot to localStorage
+              localStorage.setItem('selectedSoilPlot', newPlot)
+            }}
             disabled={plotOptions.length === 0}
           >
             {plotOptions.length > 0 ? (
@@ -136,6 +178,7 @@ export default function SoilHealthScreen({
             )}
           </select>
         </div>
+
         {isLoadingPlotData ? (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="text-center mb-6">
@@ -240,7 +283,11 @@ export default function SoilHealthScreen({
                     <div className="w-4 h-4 bg-yellow-500 rounded-full mr-1"></div>
                     <span className="text-xs font-medium text-yellow-600">pH Level</span>
                   </div>
-                  <div className="text-lg font-bold text-yellow-700">{soilData.pH_level?.toFixed(2)}</div>
+                  <div className="text-lg font-bold text-yellow-700">
+                    {soilData.pH_level != null && soilData.pH_level !== "" 
+                      ? Number(soilData.pH_level).toFixed(2) 
+                      : "N/A"}
+                  </div>
                   <div className="text-xs text-yellow-500">pH</div>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
@@ -277,6 +324,22 @@ export default function SoilHealthScreen({
               </div>
             </div>
 
+            {/* Soil Trends */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-2 bg-purple-100 rounded-lg mr-3">
+                  <Activity className="w-4 h-4 text-purple-600" />
+                </div>
+                Soil Trends
+              </h2>
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 h-40 rounded-lg flex items-center justify-center border border-amber-100">
+                <div className="text-center">
+                  <Activity className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                  <div className="text-amber-600 text-sm font-medium">Trend visualization coming soon</div>
+                </div>
+              </div>
+            </div>
+            
             {/* Status Message */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-4">
               <div className="text-center text-white font-semibold">✅ No urgent issues detected</div>
@@ -314,22 +377,6 @@ export default function SoilHealthScreen({
                     <span className="text-white text-xs">✓</span>
                   </div>
                   <span className="text-sm text-gray-700">Potassium levels are balanced</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Soil Trends */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg mr-3">
-                  <Activity className="w-4 h-4 text-purple-600" />
-                </div>
-                Soil Trends
-              </h2>
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 h-40 rounded-lg flex items-center justify-center border border-amber-100">
-                <div className="text-center">
-                  <Activity className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                  <div className="text-amber-600 text-sm font-medium">Trend visualization coming soon</div>
                 </div>
               </div>
             </div>
@@ -425,21 +472,7 @@ export default function SoilHealthScreen({
             </div>
           </>
         )}
-        {/* Bottom Buttons */}
-        <div className="space-y-3">
-          <button
-            onClick={onViewSensorClick}
-            className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
-          >
-            View Sensor Data
-          </button>
-          <button
-            onClick={onUploadSensorClick}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
-          >
-            Upload Sensor Data
-          </button>
-        </div>
+        
         <div className="h-2" /> {/* Spacer to prevent content from touching nav */}
       </div>
 
