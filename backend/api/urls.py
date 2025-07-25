@@ -31,7 +31,7 @@ urlpatterns = [
     path('farm/crops/', crop_view, name='crop-list'),  # This will be overridden by the router
     path('farm/crops/<int:crop_id>/', crop_detail_view, name='crop-detail'),  # GET, PUT, DELETE
     
-    path('upload-soil/', upload_soil_data),
+    path('upload-sensor-data/', upload_soil_data),
     path('latest-soil-data/', latest_soil_data),
     path('latest-reading/', latest_soil_reading_by_plot),
     path('get-user-plots/', get_user_plot_numbers, name='get-user-plots'),

@@ -22,19 +22,19 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   const [errorMessage, setErrorMessage] = useState("")
 
   const cropTypes = [
-    "Maize",
-    "Wheat",
-    "Rice",
-    "Barley",
-    "Soybean",
-    "Groundnut",
-    "Potato",
-    "Tomato",
-    "Onion",
-    "Carrot",
-    "Cabbage",
-    "Spinach",
-    "Other",
+   "Barley",
+"Cabbage",
+"Carrot",
+"Groundnut",
+"Maize",
+"Onion",
+"Other",
+"Potato",
+"Rice",
+"Spinach",
+"Soybean",
+"Tomato",
+"Wheat",
   ]
 
   useEffect(() => {
