@@ -16,12 +16,12 @@ from .models import Farm, Crop, SoilSensorReading, Plot
 from .serializers import FarmSerializer, CropSerializer, PlotSerializer
 from rest_framework.permissions import AllowAny
 from django.core.files.storage import default_storage
-from io import BytesIO
+from io import BytesIO 
 
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = RegisterSerializer
-    permission_classes = [AllowAny] 
+    permission_classes = [AllowAny]
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -211,6 +211,7 @@ def latest_soil_reading_by_plot(request):
         
         return Response({
             'plot_number': latest_reading.plot_number,
+            'pH_level': latest_reading.pH_level,  # THIS WAS MISSING!
             'moisture_level': latest_reading.moisture_level,
             'N': latest_reading.N,
             'P': latest_reading.P,

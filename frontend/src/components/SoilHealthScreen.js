@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
+
 export default function SoilHealthScreen({
   onBackClick,
   onViewSensorClick,
@@ -78,6 +79,7 @@ export default function SoilHealthScreen({
     try {
       const res = await api.get(`/api/latest-reading/?plot_number=${selectedPlot}`)
       console.log("API Response:", res.data); // Add debugging
+      console.log("pH_level specifically:", res.data.pH_level, typeof res.data.pH_level); // Enhanced debugging
       setSoilData(res.data)
     } catch (err) {
       console.error("Error fetching soil data", err)
@@ -99,12 +101,19 @@ export default function SoilHealthScreen({
   function calculateSoilScore(data) {
     const { moisture_level, N, P, K, pH_level } = data
     
-    // Convert pH to number and provide fallback
-    const pH = pH_level != null ? Number(pH_level) : 0;
+    // More robust pH conversion
+    let pH = 0;
+    if (pH_level !== null && pH_level !== undefined && pH_level !== "") {
+      pH = parseFloat(pH_level);
+      // Ensure pH is a valid number
+      if (isNaN(pH)) {
+        pH = 0;
+      }
+    }
     
-    console.log("Score calculation - pH:", pH, "N:", N, "P:", P, "K:", K);
+    console.log("Score calculation - pH:", pH, "pH_level raw:", pH_level, "N:", N, "P:", P, "K:", K);
     
-    const score = pH * 0.2 + N * 0.35 + P * 0.25 + (K || 0) * 0.2;
+    const score = pH * 0.2 + (N || 0) * 0.35 + (P || 0) * 0.25 + (K || 0) * 0.2;
     return Math.round(score);
   }
 
@@ -145,6 +154,8 @@ export default function SoilHealthScreen({
             View Sensor Data
           </button>
         </div>
+
+        
 
         {/* Plot Filter */}
         <div className="bg-white rounded-xl shadow-lg p-4">
@@ -284,9 +295,14 @@ export default function SoilHealthScreen({
                     <span className="text-xs font-medium text-yellow-600">pH Level</span>
                   </div>
                   <div className="text-lg font-bold text-yellow-700">
-                    {soilData.pH_level != null && soilData.pH_level !== "" 
-                      ? Number(soilData.pH_level).toFixed(2) 
-                      : "N/A"}
+                    {(() => {
+                      const pHValue = soilData.pH_level;
+                      if (pHValue !== null && pHValue !== undefined && pHValue !== "") {
+                        const numericPH = parseFloat(pHValue);
+                        return !isNaN(numericPH) ? numericPH.toFixed(2) : "N/A";
+                      }
+                      return "N/A";
+                    })()}
                   </div>
                   <div className="text-xs text-yellow-500">pH</div>
                 </div>
