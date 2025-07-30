@@ -14,6 +14,9 @@ from .views import (
     latest_soil_reading_by_plot, 
     get_user_plot_numbers,
     get_crop_by_plot_key,
+    get_favorite_threads,
+    add_favorite_thread,
+    remove_favorite_thread,
 )
 
 router = DefaultRouter()
@@ -28,8 +31,8 @@ urlpatterns = [
     path('farm/', farm_view),
     
     # Keep the old function-based view for backward compatibility
-    path('farm/crops/', crop_view, name='crop-list'),  # This will be overridden by the router
-    path('farm/crops/<int:crop_id>/', crop_detail_view, name='crop-detail'),  # GET, PUT, DELETE
+    path('farm/crops/', crop_view, name='crop-list'),
+    path('farm/crops/<int:crop_id>/', crop_detail_view, name='crop-detail'),
     
     path('upload-sensor-data/', upload_soil_data),
     path('latest-soil-data/', latest_soil_data),
@@ -38,4 +41,8 @@ urlpatterns = [
     path('', include(router.urls)),
     path('farm/crops/by-plot/<str:plot_key>/', get_crop_by_plot_key),
 
+    # Updated favorites URLs - now matches what your React code expects
+    path('favorites/', get_favorite_threads, name='favorite-threads'),
+    path('favorites/add/', add_favorite_thread, name='add-favorite'),
+    path('favorites/<int:favorite_id>/', remove_favorite_thread, name='remove-favorite'),
 ]

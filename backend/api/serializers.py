@@ -1,11 +1,27 @@
 from rest_framework import serializers
-from .models import CustomUser, Farm, Crop, SoilSensorReading, Plot
+from .models import CustomUser, Farm, Crop, SoilSensorReading, Plot, CustomerFavoriteThread
 from django.contrib.auth.password_validation import validate_password
+from forum.models import Thread
+
+class CustomerFavoriteThreadSerializer(serializers.ModelSerializer):
+    thread_id = serializers.IntegerField(source='thread.id', read_only=True)
+    
+    class Meta:
+        model = CustomerFavoriteThread
+        fields = ['id', 'thread_id', 'created_at']
+
+class FavoriteThreadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Thread
+        fields = ['id', 'title', 'content', 'created_at']
 
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name', 'phone_number']
+        fields = [
+            'id', 'username', 'email', 'password', 'first_name',
+            'last_name', 'phone_number'
+        ]
         extra_kwargs = {
             'password': {'write_only': True}
         }

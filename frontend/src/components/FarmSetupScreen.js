@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, User, MapPin, Sprout, Ruler, MilkIcon as Cow, Star , MessageSquare, Eye } from "lucide-react"
+import { ArrowLeft, User, MapPin, Sprout, Ruler, Star , MessageSquare, Eye } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -51,24 +51,33 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
   }, [token])
 
   useEffect(() => {
-    const fetchFavorites = async () => {
-      const stored = localStorage.getItem("favorites")
-      const favoriteIds = stored ? JSON.parse(stored) : []
+    const fetchFavoritesFromApi = async () => {
+      if (!token) return
       setLoadingFavorites(true)
-      if (favoriteIds.length > 0) {
-        try {
-          const res = await api.get("/forum/threads/")
-          const allThreads = res.data.results || []
-          const filtered = allThreads.filter((t) => favoriteIds.includes(t.id))
+      try {
+        // Get favorite thread records for current user
+        const favRes = await api.get("/api/favorites/")
+        const favs = favRes.data // [{id, thread_id}]
+        const favoriteIds = favs.map(fav => fav.thread_id)
+
+        if (favoriteIds.length > 0) {
+          // Get all threads and filter by favorites
+          const threadsRes = await api.get("/forum/threads/")
+          const allThreads = threadsRes.data.results || []
+          const filtered = allThreads.filter(t => favoriteIds.includes(t.id))
           setFavoriteThreads(filtered)
-        } catch (err) {
-          console.error("Error fetching favorite threads:", err)
+        } else {
+          setFavoriteThreads([])
         }
+      } catch (err) {
+        console.error("Error fetching favorite threads:", err)
+        setFavoriteThreads([])
+      } finally {
+        setLoadingFavorites(false)
       }
-      setLoadingFavorites(false)
     }
-    fetchFavorites()
-  }, [])
+    fetchFavoritesFromApi()
+  }, [token])
 
   const showSuccess = (message) => {
     setSuccessMessage(message)
@@ -107,6 +116,13 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
     } catch (err) {
       console.error(err)
       alert("Error updating farm: " + JSON.stringify(err.response?.data || err))
+    }
+  }
+
+  const handleThreadClick = (threadId) => {
+    // Make sure onThreadClick is called properly
+    if (onThreadClick) {
+      onThreadClick(threadId)
     }
   }
 
@@ -264,7 +280,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Livestock</label>
               <div className="relative">
-                <Cow className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <select
                   value={hasLivestock}
                   onChange={(e) => setHasLivestock(e.target.value)}
@@ -304,76 +320,92 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                     Save Farm
                   </button>
                 )}
-               <button
-                onClick={onManagePlotsClick}
-                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
-              >
-                Manage Plots
-              </button>
+                <button
+                  onClick={onManagePlotsClick}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                >
+                  Manage Plots
+                </button>
 
-              <button
-                onClick={onAddCropsClick}
-                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
-              >
-                Manage Crops
-              </button>
-
+                <button
+                  onClick={onAddCropsClick}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                >
+                  Manage Crops
+                </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Favorited Threads Section */}
-<div className="bg-white rounded-xl shadow-lg p-6">
-  <div className="flex items-center mb-4">
-    <div className="p-2 bg-yellow-100 rounded-lg mr-3">
-      <Star className="w-5 h-5 text-yellow-500" />
-    </div>
-    <h2 className="text-lg font-bold text-gray-800">My Threads</h2>
-  </div>
-
-  {loadingFavorites ? (
-    <div className="flex justify-center py-8">
-      <LoadingSpinner />
-    </div>
-  ) : favoriteThreads.length === 0 ? (
-    <div className="text-center py-8">
-      <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
-        <Star className="w-8 h-8 text-gray-400 mx-auto" />
-      </div>
-      <p className="text-gray-500 font-medium">No favorites yet</p>
-      <p className="text-sm text-gray-400">Start exploring the forum to add favorites</p>
-    </div>
-  ) : (
-    <div className="space-y-3">
-      {favoriteThreads.map((thread) => (
-        <div
-          key={thread.id}
-          className="p-4 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors duration-200 border border-gray-100 hover:border-gray-200"
-          onClick={() => onThreadClick(thread.id)}
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-800 text-sm mb-2">{thread.title}</h3>
-              <div className="flex items-center space-x-4 text-xs text-gray-500">
-                <div className="flex items-center">
-                  <MessageSquare className="w-3 h-3 mr-1" />
-                  <span>{thread.replies_count ?? 0} replies</span>
-                </div>
-                <div className="flex items-center">
-                  <Eye className="w-3 h-3 mr-1" />
-                  <span>{thread.views_count ?? 0} views</span>
-                </div>
+        {/* My Threads Section - Enhanced */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg mr-3">
+                <Star className="w-5 h-5 text-yellow-500" />
               </div>
+              <h2 className="text-lg font-bold text-gray-800">My Threads</h2>
             </div>
-            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+            <div className="text-sm text-gray-500">
+              {favoriteThreads.length} thread{favoriteThreads.length !== 1 ? 's' : ''}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
-  )}
-</div>
 
+          {loadingFavorites ? (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : favoriteThreads.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
+                <Star className="w-8 h-8 text-gray-400 mx-auto" />
+              </div>
+              <p className="text-gray-500 font-medium">No favorite threads yet</p>
+              <p className="text-sm text-gray-400 mb-4">Start exploring the forum to add favorites</p>
+              <button
+                onClick={() => {/* Navigate to forum - you can implement this */}}
+                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded-lg transition-colors"
+              >
+                Browse Forum
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {favoriteThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  className="p-4 bg-gray-50 hover:bg-yellow-50 rounded-lg cursor-pointer transition-all duration-200 border border-gray-100 hover:border-yellow-200 hover:shadow-md group"
+                  onClick={() => handleThreadClick(thread.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-3">
+                      <h3 className="font-semibold text-gray-800 text-sm mb-2 group-hover:text-yellow-700 transition-colors line-clamp-2">
+                        {thread.title}
+                      </h3>
+                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        <div className="flex items-center">
+                          <MessageSquare className="w-3 h-3 mr-1" />
+                          <span>{thread.replies_count ?? 0} replies</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Eye className="w-3 h-3 mr-1" />
+                          <span>{thread.views_count ?? 0} views</span>
+                        </div>
+                        {thread.created_at && (
+                          <div className="text-gray-400">
+                            {new Date(thread.created_at).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Star className="w-4 h-4 text-yellow-400 fill-current flex-shrink-0 group-hover:scale-110 transition-transform" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="h-6" />
       </div>

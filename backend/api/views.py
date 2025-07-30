@@ -1,15 +1,16 @@
 from django.shortcuts import render, get_object_or_404
 import pandas as pd
 import traceback
-# Create your views here.
+from forum.models import Thread
+from forum.serializers import ThreadSerializer
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework import generics, permissions
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import CustomUser
-from .serializers import RegisterSerializer
+from .models import CustomUser, CustomerFavoriteThread
+from .serializers import RegisterSerializer, CustomerFavoriteThreadSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Farm, Crop, SoilSensorReading, Plot
@@ -47,9 +48,6 @@ class PlotViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def plot_ids(self, request):
-        """
-        Custom action to get only the plot_id values for the current user
-        """
         plots = self.get_queryset().values_list('plot_id', flat=True)
         return Response({"plot_ids": list(plots)})
 
@@ -64,7 +62,6 @@ class CropViewSet(viewsets.ModelViewSet):
         try:
             farm = Farm.objects.get(user=self.request.user)
         except Farm.DoesNotExist:
-            # Create a default farm if it doesn't exist
             farm = Farm.objects.create(user=self.request.user, name="Default Farm")
         serializer.save(user=self.request.user, farm=farm)
 
@@ -101,7 +98,6 @@ def crop_view(request):
         try:
             farm = Farm.objects.get(user=request.user)
         except Farm.DoesNotExist:
-            # Create a default farm if it doesn't exist
             farm = Farm.objects.create(user=request.user, name="Default Farm")
         
         serializer = CropSerializer(data=request.data)
@@ -113,9 +109,6 @@ def crop_view(request):
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def crop_detail_view(request, crop_id):
-    """
-    Handle individual crop operations: GET, PUT, DELETE
-    """
     crop = get_object_or_404(Crop, id=crop_id, user=request.user)
     
     if request.method == 'GET':
@@ -140,7 +133,6 @@ def get_crop_by_plot_key(request, plot_key):
     serializer = CropSerializer(crop)
     return Response(serializer.data)
 
-
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def upload_soil_data(request):
@@ -150,7 +142,6 @@ def upload_soil_data(request):
     
     try:
         df = pd.read_excel(file)
-        # rename colum to fit model (plot_id to plot_numner)
         if 'plot_id' in df.columns:
             df.rename(columns={'plot_id': 'plot_number'}, inplace=True)
         
@@ -198,7 +189,6 @@ def latest_soil_reading_by_plot(request):
         return Response({'error': 'plot_number query parameter is required'}, status=400)
     
     try:
-        # Filter by user and plot_number, order by timestamp descending
         latest_reading = (
             SoilSensorReading.objects
             .filter(user=request.user, plot_number=plot_number)
@@ -211,7 +201,7 @@ def latest_soil_reading_by_plot(request):
         
         return Response({
             'plot_number': latest_reading.plot_number,
-            'pH_level': latest_reading.pH_level,  # THIS WAS MISSING!
+            'pH_level': latest_reading.pH_level,
             'moisture_level': latest_reading.moisture_level,
             'N': latest_reading.N,
             'P': latest_reading.P,
@@ -227,3 +217,63 @@ def get_user_plot_numbers(request):
     user = request.user
     plot_numbers = SoilSensorReading.objects.filter(user=user).values_list('plot_number', flat=True).distinct()
     return Response({'plots': list(plot_numbers)})
+
+# === Updated Favorite Threads Views ===
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_favorite_threads(request):
+    """Get all favorited threads for the current user"""
+    favorites = CustomerFavoriteThread.objects.filter(customer=request.user)
+    serializer = CustomerFavoriteThreadSerializer(favorites, many=True)
+    return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_favorite_thread(request):
+    """Add a thread to user's favorites"""
+    thread_id = request.data.get('thread_id')
+    if not thread_id:
+        return Response({"error": "thread_id is required"}, status=400)
+
+    try:
+        thread = Thread.objects.get(id=thread_id)
+        
+        # Check if already favorited
+        favorite, created = CustomerFavoriteThread.objects.get_or_create(
+            customer=request.user,
+            thread=thread
+        )
+        
+        if created:
+            return Response({
+                "message": "Thread added to favorites.",
+                "id": favorite.id,
+                "thread_id": thread.id,
+            }, status=201)
+        else:
+            return Response({
+                "message": "Thread is already in favorites.",
+                "id": favorite.id,
+                "thread_id": thread.id,
+            }, status=200)
+            
+    except Thread.DoesNotExist:
+        return Response({"error": "Thread not found."}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def remove_favorite_thread(request, favorite_id):
+    """Remove a thread from user's favorites using the favorite record ID"""
+    try:
+        favorite = CustomerFavoriteThread.objects.get(
+            id=favorite_id, 
+            customer=request.user
+        )
+        favorite.delete()
+        return Response({"message": "Favorite removed successfully."}, status=204)
+    except CustomerFavoriteThread.DoesNotExist:
+        return Response({"error": "Favorite not found."}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)

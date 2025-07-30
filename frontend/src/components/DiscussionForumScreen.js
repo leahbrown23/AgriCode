@@ -15,11 +15,12 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [newThreadTitle, setNewThreadTitle] = useState("")
   const [newThreadMessage, setNewThreadMessage] = useState("")
   const [newThreadTopic, setNewThreadTopic] = useState("")
+  
   const [loading, setLoading] = useState(true)
-  const [favoriteThreadIds, setFavoriteThreadIds] = useState(() => {
-    const stored = localStorage.getItem("favorites")
-    return stored ? JSON.parse(stored) : []
-  })
+  
+  const [favoriteThreadIds, setFavoriteThreadIds] = useState([])
+  const [user, setUser] = useState(null)
+  const [favoriteRecords, setFavoriteRecords] = useState({})
 
   const filterOptions = [
     { id: "all", label: "All Threads" },
@@ -29,24 +30,58 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     { id: "favorites", label: "Favorites" },
   ]
 
+  // Step 1: Fetch user & favorites first
   useEffect(() => {
-    api
-      .get("/forum/topics/")
-      .then((res) => {
-        const topicData = Array.isArray(res.data.results) ? res.data.results : []
-        setTopics(topicData)
-        topicData.forEach((topic) => fetchThreadsForTopic(topic.id, activeFilter))
-        setLoading(false)
-      })
-      .catch((err) => {
-        console.error("Failed to fetch topics:", err)
-        setLoading(false)
-      })
+    async function fetchUserAndFavorites() {
+      try {
+        const profileRes = await api.get("/api/profile/")
+        setUser(profileRes.data)
+
+        const favRes = await api.get("/api/favorites/")
+        const favs = favRes.data
+        setFavoriteThreadIds(favs.map(fav => fav.thread_id))
+
+        const favMap = {}
+        favs.forEach(fav => {
+          favMap[fav.thread_id] = fav.id
+        })
+        setFavoriteRecords(favMap)
+      } catch (err) {
+        console.error("Error fetching user or favorites:", err)
+      }
+    }
+    fetchUserAndFavorites()
   }, [])
 
+  // Step 2: Fetch topics AFTER favorites have loaded
   useEffect(() => {
-    topics.forEach((topic) => fetchThreadsForTopic(topic.id, activeFilter))
-  }, [activeFilter])
+    if (user === null) return
+
+    async function fetchTopics() {
+      try {
+        const res = await api.get("/forum/topics/")
+        const topicData = Array.isArray(res.data.results) ? res.data.results : []
+        setTopics(topicData)
+      } catch (err) {
+        console.error("Failed to fetch topics:", err)
+      }
+    }
+    fetchTopics()
+  }, [user])
+
+  // Step 3: Fetch threads AFTER topics and favorites loaded
+  useEffect(() => {
+    if (topics.length === 0) return
+
+    async function fetchAllThreads() {
+      setLoading(true)
+      for (const topic of topics) {
+        await fetchThreadsForTopic(topic.id, activeFilter)
+      }
+      setLoading(false)
+    }
+    fetchAllThreads()
+  }, [topics, activeFilter]) // Removed favoriteThreadIds dependency
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
     let url = `/forum/threads/?topic=${topicId}`
@@ -71,13 +106,54 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     }
   }
 
-  const toggleFavorite = (threadId) => {
-    const updated = favoriteThreadIds.includes(threadId)
-      ? favoriteThreadIds.filter((id) => id !== threadId)
-      : [...favoriteThreadIds, threadId]
+  const toggleFavorite = async (threadId) => {
+    if (!user) {
+      alert("You must be logged in to favorite threads.")
+      return
+    }
 
-    setFavoriteThreadIds(updated)
-    localStorage.setItem("favorites", JSON.stringify(updated))
+    if (favoriteThreadIds.includes(threadId)) {
+      // Remove favorite
+      const favoriteId = favoriteRecords[threadId]
+      if (!favoriteId) return
+
+      try {
+        await api.delete(`/api/favorites/${favoriteId}/`)
+        
+        // Update local state immediately
+        setFavoriteThreadIds((ids) => ids.filter((id) => id !== threadId))
+        setFavoriteRecords((recs) => {
+          const newRecs = { ...recs }
+          delete newRecs[threadId]
+          return newRecs
+        })
+
+        // If we're on favorites filter, remove the thread from view
+        if (activeFilter === "favorites") {
+          setThreadsByTopic((prev) => {
+            const updated = { ...prev }
+            Object.keys(updated).forEach(topicId => {
+              updated[topicId] = updated[topicId].filter(thread => thread.id !== threadId)
+            })
+            return updated
+          })
+        }
+      } catch (err) {
+        console.error("Failed to remove favorite:", err)
+      }
+    } else {
+      // Add favorite
+      try {
+        const res = await api.post("/api/favorites/add/", { thread_id: threadId })
+        const newFavorite = res.data
+        
+        // Update local state immediately
+        setFavoriteThreadIds((ids) => [...ids, threadId])
+        setFavoriteRecords((recs) => ({ ...recs, [threadId]: newFavorite.id }))
+      } catch (err) {
+        console.error("Failed to add favorite:", err)
+      }
+    }
   }
 
   const handleThreadClick = (topicId, threadId) => {
@@ -96,6 +172,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
       setNewThreadTitle("")
       setNewThreadMessage("")
       setNewThreadTopic("")
+      // Re-fetch only the specific topic where thread was created
       fetchThreadsForTopic(newThreadTopic, activeFilter)
     } catch (err) {
       console.error("Error creating thread:", err)
