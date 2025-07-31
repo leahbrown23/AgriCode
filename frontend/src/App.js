@@ -94,7 +94,8 @@ function App() {
           />
         )
       case "threadView":
-        return <ThreadViewScreen threadId={selectedThreadId} onBackClick={() => setCurrentScreen("farmSetup")} />
+  return <ThreadViewScreen threadId={selectedThreadId} onBackClick={() => setCurrentScreen("discussionForum")} />
+
       case "soilHealth":
         return (
           <SoilHealthScreen
@@ -204,6 +205,7 @@ function App() {
               <div className="px-4 mb-2">
                 <button
                   onClick={() => {
+                    localStorage.removeItem("selectedPlot")
                     setCurrentScreen("login")
                     setIsMenuOpen(false)
                   }}
@@ -287,7 +289,7 @@ function App() {
                     >
                       Plot Management
                     </button>
-                    
+
                     <button
                       onClick={() => {
                         setCurrentScreen("cropSetup")

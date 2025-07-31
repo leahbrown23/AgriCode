@@ -1,35 +1,37 @@
 from rest_framework import serializers
-from .models import CustomUser, Farm, Crop, SoilSensorReading, Plot
+from .models import CustomUser, Farm, Crop, SoilSensorReading, Plot, CustomerFavoriteThread
 from django.contrib.auth.password_validation import validate_password
+from forum.models import Thread
 
-class RegisterSerializer(serializers.ModelSerializer):
-    farm_name = serializers.CharField(max_length=100, write_only=True)  # Add this
+class CustomerFavoriteThreadSerializer(serializers.ModelSerializer):
+    thread_id = serializers.IntegerField(source='thread.id', read_only=True)
     
     class Meta:
+        model = CustomerFavoriteThread
+        fields = ['id', 'thread_id', 'created_at']
+
+class FavoriteThreadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Thread
+        fields = ['id', 'title', 'content', 'created_at']
+
+class RegisterSerializer(serializers.ModelSerializer):
+    class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name', 'phone_number', 'farm_name']  # Add phone_number and farm_name
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = [
+            'id', 'username', 'email', 'password', 'first_name',
+            'last_name', 'phone_number'
+        ]
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
 
     def validate_password(self, value):
         validate_password(value)
         return value
 
     def create(self, validated_data):
-        # Extract farm_name before creating user
-        farm_name = validated_data.pop('farm_name', '')
-        
-        # Create the user
         user = CustomUser.objects.create_user(**validated_data)
-        
-        # Create the farm if farm_name is provided
-        if farm_name:
-            Farm.objects.create(
-                user=user,
-                farm_name=farm_name,
-                location='',  # You can set default values or make these optional
-                crop_types=''
-            )
-        
         return user
 
 class FarmSerializer(serializers.ModelSerializer):
@@ -43,7 +45,7 @@ class CropSerializer(serializers.ModelSerializer):
         slug_field='unique_plot_key',
         queryset=Plot.objects.all()
     )
-    
+
     class Meta:
         model = Crop
         fields = '__all__'

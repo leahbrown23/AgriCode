@@ -371,8 +371,8 @@ export default function PlotManagementScreen({ onBackClick, onHomeClick, onProfi
                           <span className="text-sm text-gray-900 truncate">{plot.location}</span>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {Number.parseFloat(plot.size).toFixed(2)} hectares
-                        </div>
+  {(Math.round(Number(plot.size) * 100) / 100).toFixed(2)} hectares
+</div>
                       </div>
                     </div>
                     <div className="ml-2 flex-shrink-0">
