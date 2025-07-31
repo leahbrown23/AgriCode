@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, Info, Menu, User, Droplets, Leaf, Zap, Activity } from "lucide-react"
+import { Activity, ArrowLeft, Droplets, Home, Info, Leaf, Menu, User, Zap } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -37,39 +37,35 @@ export default function SoilHealthScreen({
     fetchProfile()
   }, [])
 
-  // Fetch user plots
+// Fetch user's crops and format dropdown
   useEffect(() => {
-    const fetchPlots = async () => {
+    const fetchCrops = async () => {
       try {
-        const res = await api.get("/api/farm/plots/")
-        // Handle different response formats and ensure it's always an array
-        const plotsData = res.data?.results || res.data || []
-        const plotsArray = Array.isArray(plotsData) ? plotsData : []
+        const res = await api.get("/api/farm/crops/")
+        const cropsData = res.data || []
 
-        // Extract plot_id values for the dropdown
-        const plotIds = plotsArray.map((plot) => plot.plot_id)
-        setPlotOptions(plotIds)
-        
-        // Only set default if no saved plot exists
-        const savedPlot = localStorage.getItem('selectedSoilPlot')
-        if (!savedPlot && plotIds.length > 0) {
-          const defaultPlot = plotIds[0] || ""
+        const formattedOptions = cropsData.map((crop) => ({
+          value: crop.plot_number,
+          label: `Plot ${crop.plot_number} - ${crop.crop_type}`,
+        }))
+
+        setPlotOptions(formattedOptions)
+
+        const savedPlot = localStorage.getItem("selectedSoilPlot")
+        if (savedPlot && formattedOptions.find((opt) => opt.value === savedPlot)) {
+          setSelectedPlot(savedPlot)
+        } else if (formattedOptions.length > 0) {
+          const defaultPlot = formattedOptions[0].value
           setSelectedPlot(defaultPlot)
-          localStorage.setItem('selectedSoilPlot', defaultPlot)
-        } else if (savedPlot && !plotIds.includes(savedPlot)) {
-          // If saved plot no longer exists, use first available
-          const defaultPlot = plotIds[0] || ""
-          setSelectedPlot(defaultPlot)
-          localStorage.setItem('selectedSoilPlot', defaultPlot)
+          localStorage.setItem("selectedSoilPlot", defaultPlot)
         }
       } catch (err) {
-        console.error("Failed to fetch plots", err)
-        // Set empty array if fetch fails
+        console.error("Failed to fetch crops", err)
         setPlotOptions([])
         setSelectedPlot("")
       }
     }
-    fetchPlots()
+    fetchCrops()
   }, [])
 
   // Fetch soil data for selected plot
@@ -177,10 +173,10 @@ export default function SoilHealthScreen({
             disabled={plotOptions.length === 0}
           >
             {plotOptions.length > 0 ? (
-              plotOptions.map((plot) => (
-                <option key={plot} value={plot}>
-                  Plot {plot}
-                </option>
+            plotOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
               ))
             ) : (
               <option value="" disabled>
