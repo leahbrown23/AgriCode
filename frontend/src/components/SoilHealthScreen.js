@@ -5,7 +5,6 @@ import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
-
 export default function SoilHealthScreen({
   onBackClick,
   onViewSensorClick,
@@ -37,7 +36,7 @@ export default function SoilHealthScreen({
     fetchProfile()
   }, [])
 
-// Fetch user's crops and format dropdown
+  // Fetch user's crops and format dropdown
   useEffect(() => {
     const fetchCrops = async () => {
       try {
@@ -123,6 +122,13 @@ export default function SoilHealthScreen({
     }
   }
 
+  // Add this function for color logic
+  function getScoreColor(score) {
+    if (score < 60) return "rgb(229,57,53)";      // red
+    if (score < 80) return "rgb(251,192,45)";     // yellow
+    return "rgb(67,160,71)";                      // green
+  }
+
   return (
     <div className="flex flex-col h-full pb-12">
       {/* Top Header */}
@@ -150,8 +156,6 @@ export default function SoilHealthScreen({
             View Sensor Data
           </button>
         </div>
-
-        
 
         {/* Plot Filter */}
         <div className="bg-white rounded-xl shadow-lg p-4">
@@ -258,27 +262,29 @@ export default function SoilHealthScreen({
                   )}
                 </div>
                 <div className="relative">
-                  <div className="text-6xl font-bold text-green-600 mb-2">{score}</div>
+                  <div
+                    className="text-6xl font-bold mb-2"
+                    style={{ color: getScoreColor(score) }}
+                  >
+                    {score}
+                  </div>
                   {classification && (
                     <div className="text-sm font-semibold text-gray-600">
                       Classification:{" "}
-                      <span
-                        className={`${
-                          classification === "Healthy"
-                            ? "text-green-600"
-                            : classification === "Moderate"
-                              ? "text-yellow-600"
-                              : "text-red-600"
-                        }`}
-                      >
+                      <span style={{ color: getScoreColor(score) }}>
                         {classification}
                       </span>
                     </div>
                   )}
-                  <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto">
+                  <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto mt-2 overflow-hidden">
                     <div
-                      className="h-2 bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(score, 100)}%` }}
+                      style={{
+                        width: `${Math.min(score, 100)}%`,
+                        background: getScoreColor(score),
+                        height: "100%",
+                        borderRadius: 8,
+                        transition: "width 0.5s"
+                      }}
                     ></div>
                   </div>
                 </div>
