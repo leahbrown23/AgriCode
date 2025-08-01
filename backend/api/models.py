@@ -52,16 +52,35 @@ class Plot(models.Model):
         return f"{self.plot_id} (User {self.user.id})"
     
 class Crop(models.Model):
+    STATUS_CHOICES = [
+        ("planting", "Planting"),
+        ("growing", "Growing"),
+        ("harvesting", "Harvesting"),
+        ("closed", "Closed"),
+    ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     farm = models.ForeignKey(Farm, on_delete=models.CASCADE)
     plot_number = models.CharField(max_length=100)
-    plot = models.ForeignKey(Plot, to_field='unique_plot_key',on_delete=models.CASCADE, null=True)
+    plot = models.ForeignKey(Plot, to_field='unique_plot_key', on_delete=models.CASCADE, null=True)
     crop_type = models.CharField(max_length=100)
     crop_variety = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planting")
 
     def __str__(self):
         return f"{self.crop_type} ({self.plot_number})"
-    
+
+class Harvest(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    plot = models.ForeignKey(Plot, to_field='unique_plot_key', on_delete=models.CASCADE)
+    crop = models.ForeignKey(Crop, on_delete=models.SET_NULL, null=True)
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    yield_amount = models.FloatField()
+    comments = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Harvest {self.crop} on {self.plot} ({self.end_date})"
+
 class SoilSensorReading(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     plot_number = models.CharField(max_length=100)

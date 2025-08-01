@@ -20,32 +20,35 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   const [tableLoading, setTableLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+  const [showHarvestModal, setShowHarvestModal] = useState(false)
+  const [harvestCrop, setHarvestCrop] = useState(null)
+  const [yieldAmount, setYieldAmount] = useState("")
+  const [comments, setComments] = useState("")
+  const [harvestRecords, setHarvestRecords] = useState([])
+  const [harvestLoading, setHarvestLoading] = useState(false)
 
   const cropTypes = [
-   "Barley",
-"Cabbage",
-"Carrot",
-"Groundnut",
-"Maize",
-"Onion",
-"Other",
-"Potato",
-"Rice",
-"Spinach",
-"Soybean",
-"Tomato",
-"Wheat",
+    "Barley",
+    "Cabbage",
+    "Carrot",
+    "Groundnut",
+    "Maize",
+    "Onion",
+    "Potato",
+    "Rice",
+    "Spinach",
+    "Soybean",
+    "Tomato",
+    "Wheat",
+    "Other",
   ]
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        console.log("🔍 Fetching user profile...")
         const res = await api.get("/api/profile/")
-        console.log("✅ Profile response:", res.data)
         setUser(res.data)
       } catch (err) {
-        console.error("❌ Failed to load user profile:", err)
         setErrorMessage("Failed to load profile: " + err.message)
       } finally {
         setLoading(false)
@@ -58,6 +61,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     if (user) {
       fetchUserCrops()
       fetchUserPlots()
+      fetchHarvestRecords()
     }
   }, [user])
 
@@ -68,8 +72,8 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
         (crop) =>
           crop.plot_number?.toString().toLowerCase().includes(term) ||
           crop.crop_type?.toLowerCase().includes(term) ||
-          crop.crop_variety?.toLowerCase().includes(term),
-      ),
+          crop.crop_variety?.toLowerCase().includes(term)
+      )
     )
   }, [searchTerm, userCrops])
 
@@ -77,20 +81,10 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     setTableLoading(true)
     setErrorMessage("")
     try {
-      console.log("🔍 Fetching crops from /api/farm/crops/...")
       const res = await api.get("/api/farm/crops/")
-      console.log("✅ Crops API response:", res)
-      console.log("✅ Crops data:", res.data)
-
       const cropsData = res.data?.results || res.data || []
-      console.log("✅ Processed crops data:", cropsData)
       setUserCrops(Array.isArray(cropsData) ? cropsData : [])
     } catch (err) {
-      console.error("❌ Error fetching crops:", err)
-      console.error("❌ Error response:", err.response)
-      console.error("❌ Error status:", err.response?.status)
-      console.error("❌ Error data:", err.response?.data)
-
       setErrorMessage(`API Error: ${err.response?.status || "Network"} - ${err.response?.data?.detail || err.message}`)
       setUserCrops([])
     } finally {
@@ -100,19 +94,25 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
 
   const fetchUserPlots = async () => {
     try {
-      console.log("🔍 Fetching plots from /api/farm/plots/...")
       const res = await api.get("/api/farm/plots/")
-      console.log("✅ Plots API response:", res)
-      console.log("✅ Plots data:", res.data)
-
       const plotsData = res.data?.results || res.data || []
-      console.log("✅ Processed plots data:", plotsData)
       setUserPlots(Array.isArray(plotsData) ? plotsData : [])
     } catch (err) {
-      console.error("❌ Error fetching plots:", err)
       setUserPlots([])
     }
   }
+
+  const fetchHarvestRecords = async () => {
+  setHarvestLoading(true)
+  try {
+    const res = await api.get("/api/harvests/")
+    setHarvestRecords(res.data)
+  } catch (err) {
+    console.error("Failed to fetch harvest records:", err)
+  } finally {
+    setHarvestLoading(false)
+  }
+}
 
   const getPlotDisplayName = (uniqueId) => {
     const plot = userPlots.find((p) => p.unique_plot_id === uniqueId)
@@ -120,20 +120,21 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   }
 
   const getRawPlotId = (uniqueKey) => {
-    // "P100U3" => "100"
-    return uniqueKey.split("U")[0].replace("P", "")
+    if (!uniqueKey || typeof uniqueKey !== "string") return ""
+    return uniqueKey.split("U")[0]?.replace("P", "") || ""
   }
 
   const getAvailablePlots = () => {
-    // Get plot IDs that already have crops
-    const occupiedPlotIds = userCrops.map((crop) => crop.plot_number?.toString())
-
-    // Filter out plots that already have crops
+    const occupiedPlotIds = userCrops
+      .map((crop) => crop.plot_number?.toString())
+      .filter(Boolean)
     return userPlots.filter((plot) => !occupiedPlotIds.includes(plot.plot_id?.toString()))
   }
 
   const isPlotOccupied = (plotId) => {
-    const occupiedPlotIds = userCrops.map((crop) => crop.plot_number?.toString())
+    const occupiedPlotIds = userCrops
+      .map((crop) => crop.plot_number?.toString())
+      .filter(Boolean)
     return occupiedPlotIds.includes(plotId?.toString())
   }
 
@@ -143,8 +144,6 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       setTimeout(() => setErrorMessage(""), 3000)
       return
     }
-
-    // Check if plot already has a crop
     const plotId = getRawPlotId(selectedPlotId)
     if (isPlotOccupied(plotId)) {
       setErrorMessage(
@@ -153,22 +152,13 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       setTimeout(() => setErrorMessage(""), 5000)
       return
     }
-
     try {
-      console.log("🔍 Adding crop:", {
-        plot_number: plotId,
-        plot: selectedPlotId,
-        crop_type: cropType,
-        crop_variety: cropVariety,
-      })
-
       await api.post("/api/farm/crops/", {
         plot_number: plotId,
         plot: selectedPlotId,
         crop_type: cropType,
         crop_variety: cropVariety,
       })
-
       setSuccessMessage("Crop added successfully!")
       setSelectedPlotId("")
       setCropType("")
@@ -176,16 +166,8 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       fetchUserCrops()
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
-      console.error("❌ Full error object:", err)
-      console.error("❌ Error response:", err.response)
-      console.error("❌ Error status:", err.response?.status)
-      console.error("❌ Error data:", err.response?.data)
-
       let errorMessage = "Error adding crop"
-
       if (err.response?.data) {
-        console.error("❌ Raw response data:", typeof err.response.data, err.response.data)
-
         if (typeof err.response.data === "string") {
           if (err.response.data.includes("IntegrityError") || err.response.data.includes("UNIQUE constraint")) {
             errorMessage =
@@ -201,7 +183,6 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       } else {
         errorMessage = err.message || "Unknown error occurred"
       }
-
       setErrorMessage(errorMessage)
       setTimeout(() => setErrorMessage(""), 8000)
     }
@@ -225,9 +206,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       fetchUserCrops()
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
-      console.error("Update error:", err)
       let errorMessage = "Error updating crop"
-
       if (err.response?.data) {
         if (typeof err.response.data === "string" && err.response.data.includes("<!DOCTYPE html>")) {
           if (err.response.data.includes("IntegrityError") || err.response.data.includes("UNIQUE constraint")) {
@@ -239,7 +218,6 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
           errorMessage = JSON.stringify(err.response.data)
         }
       }
-
       setErrorMessage(errorMessage)
       setTimeout(() => setErrorMessage(""), 5000)
       setEditingCrop(null)
@@ -261,10 +239,60 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       fetchUserCrops()
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
-      console.error("Delete error:", err)
       setErrorMessage(`Error deleting crop: ${err.response?.data?.detail || err.message}`)
       setTimeout(() => setErrorMessage(""), 5000)
       setShowDeleteConfirm(false)
+    }
+  }
+
+ const handleHarvestDone = async () => {
+  if (!yieldAmount) {
+    setErrorMessage("Please enter a yield amount");
+    setTimeout(() => setErrorMessage(""), 3000);
+    return;
+  }
+
+  try {
+    // 1. Send harvest info to backend
+    await api.post(`/api/farm/crops/${harvestCrop.id}/harvest/`, {
+      start_date: harvestCrop.created_at || new Date().toISOString(),
+      end_date: new Date().toISOString(),
+      yield_amount: yieldAmount,
+      comments,
+    });
+
+    // 2. Delete the crop from backend
+    await api.delete(`/api/farm/crops/${harvestCrop.id}/`);
+
+    // 3. Update frontend state
+    setUserCrops(prev => prev.filter(crop => crop.id !== harvestCrop.id));
+    setHarvestCrop(null);
+    setYieldAmount("");
+    setComments("");
+    setShowHarvestModal(false);
+
+    fetchUserCrops();         // Refresh crop table
+    fetchHarvestRecords();    // Refresh harvest records
+
+    setSuccessMessage("Harvest recorded and crop deleted successfully!");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  } catch (err) {
+    setErrorMessage("Failed to record harvest or delete crop: " + (err.response?.data?.detail || err.message));
+    setTimeout(() => setErrorMessage(""), 5000);
+  }
+};
+
+  const handleStatusChange = async (cropId, status) => {
+    try {
+      await api.post(`/api/farm/crops/${cropId}/status/`, { status })
+      setUserCrops(prevCrops =>
+        prevCrops.map(crop =>
+          crop.id === cropId ? { ...crop, status } : crop
+        )
+      )
+    } catch (err) {
+      setErrorMessage("Failed to update status")
+      setTimeout(() => setErrorMessage(""), 3000)
     }
   }
 
@@ -324,8 +352,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
             </div>
             <h2 className="text-lg font-bold text-gray-800">Add New Crop</h2>
           </div>
-
-          {/* No Plots Warning */}
+          
           {userPlots.length === 0 ? (
             <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <div className="flex items-center">
@@ -431,87 +458,257 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
           </div>
         </div>
 
-        {/* CROPS TABLE - COMPACT VERSION */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg mr-3">
-                <Sprout className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-800">Your Crops</h2>
-                <p className="text-sm text-gray-500">Click on any row to edit</p>
+        {/* CROPS TABLE */}
+<div className="bg-white rounded-xl shadow-lg overflow-hidden">
+  <div className="p-4 border-b border-gray-100">
+    <div className="flex items-center">
+      <div className="p-2 bg-green-100 rounded-lg mr-3">
+        <Sprout className="w-5 h-5 text-green-600" />
+      </div>
+      <div>
+        <h2 className="text-lg font-bold text-gray-800">Your Crops</h2>
+        <p className="text-sm text-gray-500">Click on any row to edit</p>
+      </div>
+    </div>
+  </div>
+
+  <div className="divide-y divide-gray-100">
+    {tableLoading ? (
+      <div className="px-4 py-8 text-center">
+        <LoadingSpinner />
+      </div>
+    ) : errorMessage && userCrops.length === 0 ? (
+      <div className="px-4 py-12 text-center">
+        <div className="p-4 bg-red-50 rounded-lg inline-block mb-4">
+          <Sprout className="w-8 h-8 text-red-400 mx-auto" />
+        </div>
+        <p className="text-red-500 font-medium">API Connection Error</p>
+        <button
+          onClick={fetchUserCrops}
+          className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+        >
+          Retry
+        </button>
+      </div>
+    ) : filteredCrops.length === 0 ? (
+      <div className="px-4 py-12 text-center">
+        <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
+          <Sprout className="w-8 h-8 text-gray-400 mx-auto" />
+        </div>
+        <p className="text-gray-500 font-medium">
+          {userCrops.length === 0 ? "No crops found" : "No crops match your search"}
+        </p>
+      </div>
+    ) : (
+      filteredCrops.map((crop) => (
+        <div
+          key={crop.id}
+          className="p-4 hover:bg-gray-50 transition-colors duration-150 ease-in-out cursor-pointer flex items-center justify-between"
+          onClick={(e) => {
+            if (
+              !e.target.closest(".status-control") &&
+              !e.target.closest(".harvest-btn") &&
+              !e.target.closest(".edit-btn")
+            ) {
+              setEditingCrop(crop);
+            }
+          }}
+        >
+          <div className="flex items-center flex-1 min-w-0">
+            <div className="w-2 h-2 bg-green-400 rounded-full mr-3 flex-shrink-0"></div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-green-600">
+                  Plot {crop.plot_number}
+                </span>
+                <span className="text-sm text-gray-900">{crop.crop_variety}</span>
               </div>
             </div>
           </div>
-
-          <div className="divide-y divide-gray-100">
-            {tableLoading ? (
-              <div className="px-4 py-8 text-center">
-                <div className="flex items-center justify-center">
-                  <LoadingSpinner />
-                  <span className="ml-2 text-gray-500">Loading crops...</span>
-                </div>
-              </div>
-            ) : errorMessage && userCrops.length === 0 ? (
-              <div className="px-4 py-12 text-center">
-                <div className="p-4 bg-red-50 rounded-lg inline-block mb-4">
-                  <Sprout className="w-8 h-8 text-red-400 mx-auto" />
-                </div>
-                <p className="text-red-500 font-medium">API Connection Error</p>
-                <p className="text-sm text-red-400">Check console for details</p>
-                <button
-                  onClick={fetchUserCrops}
-                  className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : filteredCrops.length === 0 ? (
-              <div className="px-4 py-12 text-center">
-                <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
-                  <Sprout className="w-8 h-8 text-gray-400 mx-auto" />
-                </div>
-                <p className="text-gray-500 font-medium">
-                  {userCrops.length === 0 ? "No crops found" : "No crops match your search"}
-                </p>
-                <p className="text-sm text-gray-400">
-                  {userCrops.length === 0 ? "Add your first crop above!" : "Try a different search term"}
-                </p>
-              </div>
-            ) : (
-              filteredCrops.map((crop) => (
-                <div
-                  key={crop.id}
-                  className="p-4 hover:bg-gray-50 transition-colors duration-150 ease-in-out cursor-pointer"
-                  onClick={() => setEditingCrop(crop)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center flex-1 min-w-0">
-                      <div className="w-2 h-2 bg-green-400 rounded-full mr-3 flex-shrink-0"></div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center space-x-3 mb-1">
-                          <span className="text-sm font-medium text-green-600 hover:text-green-700">
-                            {getPlotDisplayName(crop.plot_number)}
-                          </span>
-                          <span className="text-xs text-gray-400">•</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            {crop.crop_type}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-900 truncate">{crop.crop_variety}</div>
-                      </div>
-                    </div>
-                    <div className="ml-2 flex-shrink-0">
-                      <Edit className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div
+              className="status-control flex flex-col items-start gap-y-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="text-xs text-gray-500">{crop.crop_type}</span>
+              <select
+                value={crop.status}
+                onChange={(e) => handleStatusChange(crop.id, e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-xs w-full"
+                style={{ minWidth: 100 }}
+              >
+                <option value="planting">Planting</option>
+                <option value="growing">Growing</option>
+                <option value="harvesting">Harvesting</option>
+              </select>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setHarvestCrop(crop);
+                setShowHarvestModal(true);
+              }}
+              className="harvest-btn bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs"
+              style={{ minWidth: 70 }}
+            >
+              Harvest
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingCrop(crop);
+              }}
+              className="edit-btn"
+              style={{ background: "none", border: "none", padding: 0 }}
+            >
+              <Edit className="w-4 h-4 text-gray-400" />
+            </button>
           </div>
         </div>
-        {/* Bottom spacer to ensure content is visible above navigation */}
+      ))
+    )}
+  </div>
+</div>
+
+        {/* Harvest Modal */}
+{showHarvestModal && harvestCrop && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 p-4">
+    <div className="bg-white w-full max-w-sm mx-auto rounded-xl shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center">
+          <div className="p-2 bg-green-100 rounded-lg mr-3">
+            <Sprout className="w-5 h-5 text-green-600" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800">Harvest Crop</h3>
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
+        <div>
+          <strong>Crop:</strong> {harvestCrop.crop_type}<br />
+          <strong>Plot:</strong> {harvestCrop.plot_number}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Yield Amount</label>
+          <input
+            type="number"
+            value={yieldAmount}
+            onChange={e => setYieldAmount(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <textarea
+            value={comments}
+            onChange={e => setComments(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm"
+          />
+        </div>
+      </div>
+      <div className="p-4 border-t border-gray-100 flex flex-col space-y-2">
+       <button
+  onClick={handleHarvestDone}
+  className="w-full py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-medium transition-all duration-200 text-sm"
+>
+  Done
+</button>
+        <button
+          onClick={() => setShowHarvestModal(false)}
+          className="w-full py-2 text-gray-500 hover:text-gray-700 font-medium transition-colors border border-gray-300 rounded-lg text-sm"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+       {/* Historical Harvest Record Table */}
+<div className="bg-white rounded-xl shadow-lg overflow-hidden mt-8">
+  <div className="p-6 border-b border-gray-100">
+    <div className="flex items-center">
+      <div className="p-2 bg-green-100 rounded-lg mr-3">
+        <Sprout className="w-5 h-5 text-green-600" />
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800">Historical Harvest Record</h2>
+        <p className="text-sm text-gray-500">All completed harvests</p>
+      </div>
+    </div>
+  </div>
+
+  <div className="overflow-x-auto">
+    {harvestLoading ? (
+      <div className="text-center py-12">
+        <LoadingSpinner />
+      </div>
+    ) : harvestRecords.length === 0 ? (
+      <div className="text-center py-12">
+        <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
+          <Sprout className="w-8 h-8 text-gray-400 mx-auto" />
+        </div>
+        <p className="text-gray-500 font-medium">No harvest records found</p>
+        <p className="text-sm text-gray-400">Check back after completing harvests</p>
+      </div>
+    ) : (
+      <table className="w-full">
+        <thead>
+          <tr className="bg-gradient-to-r from-green-50 to-green-100">
+            <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-green-200">
+              Plot
+            </th>
+            <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-green-200">
+              Crop
+            </th>
+            <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-green-200">
+              Start Date
+            </th>
+            <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-green-200">
+              End Date
+            </th>
+            <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-green-200">
+              Yield
+            </th>
+            <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-green-200">
+              Comments
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {harvestRecords.map((hr) => (
+            <tr key={hr.id} className="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+              <td className="px-3 py-3 whitespace-nowrap">
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-green-400 rounded-full mr-3"></div>
+                  <span className="text-sm font-medium text-gray-900">{hr.plot_number}</span>
+                </div>
+              </td>
+              <td className="px-3 py-3 whitespace-nowrap">
+                <span className="text-sm text-gray-900">{hr.crop_type}</span>
+              </td>
+              <td className="px-3 py-3 whitespace-nowrap">
+                <div className="text-sm text-gray-900">{new Date(hr.start_date).toLocaleDateString()}</div>
+                <div className="text-xs text-gray-500">{new Date(hr.start_date).toLocaleTimeString()}</div>
+              </td>
+              <td className="px-3 py-3 whitespace-nowrap">
+                <div className="text-sm text-gray-900">{new Date(hr.end_date).toLocaleDateString()}</div>
+                <div className="text-xs text-gray-500">{new Date(hr.end_date).toLocaleTimeString()}</div>
+              </td>
+              <td className="px-3 py-3 whitespace-nowrap">
+                <div className="text-sm font-medium text-gray-900">{hr.yield_amount}</div>
+                <div className="text-xs text-gray-500">kg/ha</div>
+              </td>
+              <td className="px-3 py-3">
+                <div className="text-sm text-gray-900 max-w-xs truncate">{hr.comments || 'None'}</div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</div>
+
+        {/* Bottom spacer */}
         <div className="h-20"></div>
       </div>
 
@@ -537,7 +734,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
         </button>
       </div>
 
-      {/* Edit Crop Modal - COMPACT VERSION */}
+      {/* Edit Crop Modal */}
       {editingCrop && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 p-4">
           <div className="bg-white w-full max-w-sm mx-auto rounded-xl shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -624,7 +821,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
         </div>
       )}
 
-      {/* Delete Confirmation Modal - COMPACT VERSION */}
+      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-xs w-full overflow-hidden">

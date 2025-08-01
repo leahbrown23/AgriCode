@@ -4,6 +4,15 @@ import { Activity, ArrowLeft, Droplets, Home, Info, Leaf, Menu, User, Zap } from
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts"
 
 export default function SoilHealthScreen({
   onBackClick,
@@ -22,6 +31,7 @@ export default function SoilHealthScreen({
   })
   const [isLoadingPlotData, setIsLoadingPlotData] = useState(false)
   const [showExplanation, setShowExplanation] = useState(false)
+  const [historyData, setHistoryData] = useState([])
 
   // Fetch user profile
   useEffect(() => {
@@ -73,8 +83,6 @@ export default function SoilHealthScreen({
     setIsLoadingPlotData(true)
     try {
       const res = await api.get(`/api/latest-reading/?plot_number=${selectedPlot}`)
-      console.log("API Response:", res.data); // Add debugging
-      console.log("pH_level specifically:", res.data.pH_level, typeof res.data.pH_level); // Enhanced debugging
       setSoilData(res.data)
     } catch (err) {
       console.error("Error fetching soil data", err)
@@ -84,9 +92,42 @@ export default function SoilHealthScreen({
     }
   }
 
+  // Fetch historical data for trends
+  const fetchHistoryData = async () => {
+  if (!selectedPlot) return;
+  try {
+    const res = await api.get(`/api/reading-history/?plot_number=${selectedPlot}`);
+    // Convert all values to numbers and fix decimal separator
+    const formatted = (res.data || [])
+      .map((item) => ({
+        ...item,
+        pH_level: item.pH_level ? parseFloat(String(item.pH_level).replace(/,/g, ".")) : null,
+        N: item.N ? parseFloat(String(item.N).replace(/,/g, ".")) : null,
+        P: item.P ? parseFloat(String(item.P).replace(/,/g, ".")) : null,
+        K: item.K ? parseFloat(String(item.K).replace(/,/g, ".")) : null,
+        moisture_level: item.moisture_level ? parseFloat(String(item.moisture_level).replace(/,/g, ".")) : null,
+        timestamp: item.timestamp ? new Date(item.timestamp).toLocaleDateString("en-ZA", { year: "2-digit", month: "2-digit", day: "2-digit" }) : "",
+      }))
+      .filter(
+        (item) =>
+          item.pH_level !== null &&
+          item.N !== null &&
+          item.P !== null &&
+          item.K !== null &&
+          item.moisture_level !== null &&
+          item.timestamp
+      );
+    setHistoryData(formatted);
+    console.log("historyData", formatted); // <-- Add this for debugging
+  } catch (err) {
+    setHistoryData([]);
+  }
+};
+
   useEffect(() => {
     if (selectedPlot) {
       fetchSoilData()
+      fetchHistoryData()
     }
   }, [selectedPlot])
 
@@ -95,7 +136,7 @@ export default function SoilHealthScreen({
 
   function calculateSoilScore(data) {
     const { moisture_level, N, P, K, pH_level } = data
-    
+
     // More robust pH conversion
     let pH = 0;
     if (pH_level !== null && pH_level !== undefined && pH_level !== "") {
@@ -105,9 +146,7 @@ export default function SoilHealthScreen({
         pH = 0;
       }
     }
-    
-    console.log("Score calculation - pH:", pH, "pH_level raw:", pH_level, "N:", N, "P:", P, "K:", K);
-    
+
     const score = pH * 0.2 + (N || 0) * 0.35 + (P || 0) * 0.25 + (K || 0) * 0.2;
     return Math.round(score);
   }
@@ -122,7 +161,6 @@ export default function SoilHealthScreen({
     }
   }
 
-  // Add this function for color logic
   function getScoreColor(score) {
     if (score < 60) return "rgb(229,57,53)";      // red
     if (score < 80) return "rgb(251,192,45)";     // yellow
@@ -177,10 +215,10 @@ export default function SoilHealthScreen({
             disabled={plotOptions.length === 0}
           >
             {plotOptions.length > 0 ? (
-            plotOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
+              plotOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))
             ) : (
               <option value="" disabled>
@@ -350,10 +388,76 @@ export default function SoilHealthScreen({
                 </div>
                 Soil Trends
               </h2>
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 h-40 rounded-lg flex items-center justify-center border border-amber-100">
-                <div className="text-center">
-                  <Activity className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                  <div className="text-amber-600 text-sm font-medium">Trend visualization coming soon</div>
+              <div className="space-y-6">
+                <div>
+                  <div className="font-semibold text-xs text-gray-700 mb-1">pH Level</div>
+                  // Example for pH Level chart
+<ResponsiveContainer width="100%" height={120}>
+  <LineChart
+    data={historyData}
+    margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+  >
+    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+    <XAxis dataKey="timestamp" fontSize={12} tick={{ fill: "#64748b" }} />
+    <YAxis fontSize={12} tick={{ fill: "#64748b" }} />
+    <Tooltip />
+    <Line
+      type="monotone"
+      dataKey="pH_level"
+      stroke="#a78bfa"
+      strokeWidth={3}
+      dot={false}
+    />
+  </LineChart>
+</ResponsiveContainer>
+                </div>
+                <div>
+                  <div className="font-semibold text-xs text-gray-700 mb-1">Moisture (%)</div>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart data={historyData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="timestamp" fontSize={10} />
+                      <YAxis domain={['auto', 'auto']} fontSize={10} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="moisture_level" stroke="#3b82f6" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <div className="font-semibold text-xs text-gray-700 mb-1">Nitrogen (ppm)</div>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart data={historyData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="timestamp" fontSize={10} />
+                      <YAxis domain={['auto', 'auto']} fontSize={10} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="N" stroke="#22c55e" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <div className="font-semibold text-xs text-gray-700 mb-1">Phosphorus (ppm)</div>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart data={historyData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="timestamp" fontSize={10} />
+                      <YAxis domain={['auto', 'auto']} fontSize={10} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="P" stroke="#a78bfa" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <div className="font-semibold text-xs text-gray-700 mb-1">Potassium (ppm)</div>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart data={historyData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="timestamp" fontSize={10} />
+                      <YAxis domain={['auto', 'auto']} fontSize={10} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="K" stroke="#fb923c" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
@@ -490,7 +594,7 @@ export default function SoilHealthScreen({
             </div>
           </>
         )}
-        
+
         <div className="h-2" /> {/* Spacer to prevent content from touching nav */}
       </div>
 
@@ -518,3 +622,4 @@ export default function SoilHealthScreen({
     </div>
   )
 }
+
