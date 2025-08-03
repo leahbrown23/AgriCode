@@ -463,7 +463,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
         <Sprout className="w-5 h-5 text-green-600" />
       </div>
       <div>
-        <h2 className="text-lg font-bold text-gray-800">Your Crops</h2>
+        <h2 className="text-lg font-bold text-gray-800">My Crops</h2>
         <p className="text-sm text-gray-500">Click on any row to edit</p>
       </div>
     </div>
