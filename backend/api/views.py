@@ -311,3 +311,28 @@ def list_harvests(request):
     harvests = Harvest.objects.filter(user=request.user).order_by('-end_date')
     serializer = HarvestSerializer(harvests, many=True)
     return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def reading_history(request):
+    plot_number = request.query_params.get('plot_number')
+    if not plot_number:
+        return Response({'error': 'plot_number is required'}, status=400)
+
+    # Fetch all readings for the user's plot
+    readings = SoilSensorReading.objects.filter(user=request.user, plot_number=plot_number).order_by("timestamp")
+
+    data = [
+        {
+            "sensor_id": r.sensor_id,
+            "plot_number": r.plot_number,
+            "ph_level": r.pH_level,  # Use lowercase 'ph_level' for JS compatibility
+            "N": r.N,
+            "P": r.P,
+            "K": r.K,
+            "moisture_level": r.moisture_level,
+            "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+        }
+        for r in readings
+    ]
+    return Response(data)

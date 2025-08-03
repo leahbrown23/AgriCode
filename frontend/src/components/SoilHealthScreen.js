@@ -1,18 +1,10 @@
 "use client"
 
-import { Activity, ArrowLeft, Droplets, Home, Info, Leaf, Menu, User, Zap } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Activity, ArrowLeft, Droplets, Home, Info, Leaf, Menu, User, Zap, ChevronDown } from "lucide-react"
+import { useEffect, useState, useRef } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts"
+import SoilHealthGraphs from "./SoilHealthGraphs"
 
 export default function SoilHealthScreen({
   onBackClick,
@@ -26,12 +18,13 @@ export default function SoilHealthScreen({
   const [soilData, setSoilData] = useState(null)
   const [plotOptions, setPlotOptions] = useState([])
   const [selectedPlot, setSelectedPlot] = useState(() => {
-    // Load saved plot from localStorage on component mount
     return localStorage.getItem('selectedSoilPlot') || ""
   })
   const [isLoadingPlotData, setIsLoadingPlotData] = useState(false)
   const [showExplanation, setShowExplanation] = useState(false)
   const [historyData, setHistoryData] = useState([])
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
 
   // Fetch user profile
   useEffect(() => {
@@ -94,35 +87,40 @@ export default function SoilHealthScreen({
 
   // Fetch historical data for trends
   const fetchHistoryData = async () => {
-  if (!selectedPlot) return;
-  try {
-    const res = await api.get(`/api/reading-history/?plot_number=${selectedPlot}`);
-    // Convert all values to numbers and fix decimal separator
-    const formatted = (res.data || [])
-      .map((item) => ({
-        ...item,
-        pH_level: item.pH_level ? parseFloat(String(item.pH_level).replace(/,/g, ".")) : null,
-        N: item.N ? parseFloat(String(item.N).replace(/,/g, ".")) : null,
-        P: item.P ? parseFloat(String(item.P).replace(/,/g, ".")) : null,
-        K: item.K ? parseFloat(String(item.K).replace(/,/g, ".")) : null,
-        moisture_level: item.moisture_level ? parseFloat(String(item.moisture_level).replace(/,/g, ".")) : null,
-        timestamp: item.timestamp ? new Date(item.timestamp).toLocaleDateString("en-ZA", { year: "2-digit", month: "2-digit", day: "2-digit" }) : "",
-      }))
-      .filter(
-        (item) =>
-          item.pH_level !== null &&
-          item.N !== null &&
-          item.P !== null &&
-          item.K !== null &&
-          item.moisture_level !== null &&
-          item.timestamp
-      );
-    setHistoryData(formatted);
-    console.log("historyData", formatted); // <-- Add this for debugging
-  } catch (err) {
-    setHistoryData([]);
-  }
-};
+    if (!selectedPlot) return;
+    try {
+      const res = await api.get(`/api/reading-history/?plot_number=${selectedPlot}`);
+      const formatted = (res.data || [])
+        .map((item) => ({
+          ...item,
+          pH_level: item.ph_level ? parseFloat(String(item.ph_level).replace(/,/g, ".")) : null,
+          N: item.N ? parseFloat(String(item.N).replace(/,/g, ".")) : null,
+          P: item.P ? parseFloat(String(item.P).replace(/,/g, ".")) : null,
+          K: item.K ? parseFloat(String(item.K).replace(/,/g, ".")) : null,
+          moisture_level: item.moisture_level ? parseFloat(String(item.moisture_level).replace(/,/g, ".")) : null,
+          timestamp: item.timestamp
+            ? new Date(item.timestamp).toLocaleDateString("en-ZA", {
+                year: "2-digit",
+                month: "2-digit",
+                day: "2-digit",
+              })
+            : "",
+        }))
+        .filter(
+          (item) =>
+            item.pH_level !== null &&
+            item.N !== null &&
+            item.P !== null &&
+            item.K !== null &&
+            item.moisture_level !== null &&
+            item.timestamp
+        );
+      setHistoryData(formatted);
+    } catch (err) {
+      console.error("Error fetching history data:", err);
+      setHistoryData([]);
+    }
+  };
 
   useEffect(() => {
     if (selectedPlot) {
@@ -131,22 +129,30 @@ export default function SoilHealthScreen({
     }
   }, [selectedPlot])
 
+  // Custom dropdown: close on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleClick(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    window.addEventListener("mousedown", handleClick);
+    return () => window.removeEventListener("mousedown", handleClick);
+  }, [dropdownOpen]);
+
   const score = soilData ? calculateSoilScore(soilData) : 0
   const classification = getClassification(score)
 
   function calculateSoilScore(data) {
     const { moisture_level, N, P, K, pH_level } = data
-
-    // More robust pH conversion
     let pH = 0;
     if (pH_level !== null && pH_level !== undefined && pH_level !== "") {
       pH = parseFloat(pH_level);
-      // Ensure pH is a valid number
       if (isNaN(pH)) {
         pH = 0;
       }
     }
-
     const score = pH * 0.2 + (N || 0) * 0.35 + (P || 0) * 0.25 + (K || 0) * 0.2;
     return Math.round(score);
   }
@@ -162,9 +168,9 @@ export default function SoilHealthScreen({
   }
 
   function getScoreColor(score) {
-    if (score < 60) return "rgb(229,57,53)";      // red
-    if (score < 80) return "rgb(251,192,45)";     // yellow
-    return "rgb(67,160,71)";                      // green
+    if (score < 60) return "rgb(229,57,53)";
+    if (score < 80) return "rgb(251,192,45)";
+    return "rgb(67,160,71)";
   }
 
   return (
@@ -179,7 +185,7 @@ export default function SoilHealthScreen({
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-4 space-y-4">
-        {/* Action Buttons - Moved to Top */}
+        {/* Action Buttons */}
         <div className="space-y-3">
           <button
             onClick={onUploadSensorClick}
@@ -195,37 +201,63 @@ export default function SoilHealthScreen({
           </button>
         </div>
 
-        {/* Plot Filter */}
+        {/* Plot Filter - Custom Dropdown (smaller font/size) */}
         <div className="bg-white rounded-xl shadow-lg p-4">
           <div className="flex items-center mb-3">
-            <div className="p-2 bg-green-100 rounded-lg mr-3">
-              <Leaf className="w-4 h-4 text-green-600" />
+            <div className="p-2 bg-green-100 rounded-lg mr-3 flex items-center justify-center">
+              <Leaf className="w-5 h-5 text-green-600" />
             </div>
             <label className="text-sm font-semibold text-gray-700">Select Plot</label>
           </div>
-          <select
-            className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-            value={selectedPlot}
-            onChange={(e) => {
-              const newPlot = e.target.value
-              setSelectedPlot(newPlot)
-              // Save selected plot to localStorage
-              localStorage.setItem('selectedSoilPlot', newPlot)
-            }}
-            disabled={plotOptions.length === 0}
-          >
-            {plotOptions.length > 0 ? (
-              plotOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))
-            ) : (
-              <option value="" disabled>
-                No plots available
-              </option>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              className={`w-full flex items-center justify-between border-2 ${dropdownOpen ? "border-green-400" : "border-green-300"} rounded-2xl px-4 py-2 text-base font-medium text-gray-800 bg-white shadow-sm focus:ring-2 focus:ring-green-400 transition-all outline-none`}
+              onClick={e => {
+                e.stopPropagation();
+                setDropdownOpen((open) => !open);
+              }}
+              disabled={plotOptions.length === 0}
+              aria-haspopup="listbox"
+              aria-expanded={dropdownOpen}
+            >
+              {plotOptions.find(opt => opt.value === selectedPlot)?.label || "Select a plot"}
+              <ChevronDown className="w-5 h-5 text-gray-400 ml-2" />
+            </button>
+            {dropdownOpen && (
+              <div className="absolute z-20 mt-2 w-full bg-white rounded-2xl shadow-lg border border-green-100 animate-fade-in">
+                {plotOptions.length > 0 ? (
+                  plotOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`w-full text-left px-4 py-2 text-base rounded-2xl transition-all
+                        ${selectedPlot === option.value
+                          ? "bg-green-100 text-green-700 font-bold"
+                          : "hover:bg-green-50 text-gray-800"}
+                      `}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setSelectedPlot(option.value);
+                        localStorage.setItem('selectedSoilPlot', option.value);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-2 text-gray-400 text-base">No plots available</div>
+                )}
+              </div>
             )}
-          </select>
+          </div>
+          {selectedPlot && (
+            <div className="mt-2 flex items-center text-xs text-gray-500">
+              <Leaf className="w-4 h-4 text-green-400 mr-1" />
+              {plotOptions.find(opt => opt.value === selectedPlot)?.label}
+            </div>
+          )}
         </div>
 
         {isLoadingPlotData ? (
@@ -381,87 +413,8 @@ export default function SoilHealthScreen({
             </div>
 
             {/* Soil Trends */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg mr-3">
-                  <Activity className="w-4 h-4 text-purple-600" />
-                </div>
-                Soil Trends
-              </h2>
-              <div className="space-y-6">
-                <div>
-                  <div className="font-semibold text-xs text-gray-700 mb-1">pH Level</div>
-                  // Example for pH Level chart
-<ResponsiveContainer width="100%" height={120}>
-  <LineChart
-    data={historyData}
-    margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-  >
-    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-    <XAxis dataKey="timestamp" fontSize={12} tick={{ fill: "#64748b" }} />
-    <YAxis fontSize={12} tick={{ fill: "#64748b" }} />
-    <Tooltip />
-    <Line
-      type="monotone"
-      dataKey="pH_level"
-      stroke="#a78bfa"
-      strokeWidth={3}
-      dot={false}
-    />
-  </LineChart>
-</ResponsiveContainer>
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-gray-700 mb-1">Moisture (%)</div>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <LineChart data={historyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="timestamp" fontSize={10} />
-                      <YAxis domain={['auto', 'auto']} fontSize={10} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="moisture_level" stroke="#3b82f6" dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-gray-700 mb-1">Nitrogen (ppm)</div>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <LineChart data={historyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="timestamp" fontSize={10} />
-                      <YAxis domain={['auto', 'auto']} fontSize={10} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="N" stroke="#22c55e" dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-gray-700 mb-1">Phosphorus (ppm)</div>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <LineChart data={historyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="timestamp" fontSize={10} />
-                      <YAxis domain={['auto', 'auto']} fontSize={10} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="P" stroke="#a78bfa" dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-gray-700 mb-1">Potassium (ppm)</div>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <LineChart data={historyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="timestamp" fontSize={10} />
-                      <YAxis domain={['auto', 'auto']} fontSize={10} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="K" stroke="#fb923c" dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-            
+            <SoilHealthGraphs data={historyData} />
+
             {/* Status Message */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-4">
               <div className="text-center text-white font-semibold">✅ No urgent issues detected</div>
@@ -595,7 +548,7 @@ export default function SoilHealthScreen({
           </>
         )}
 
-        <div className="h-2" /> {/* Spacer to prevent content from touching nav */}
+        <div className="h-2" />
       </div>
 
       {/* Bottom Nav */}
@@ -622,4 +575,3 @@ export default function SoilHealthScreen({
     </div>
   )
 }
-
