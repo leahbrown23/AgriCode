@@ -287,24 +287,23 @@ def harvest_crop(request, crop_id):
     comments = request.data.get("comments", "")
     end_date = request.data.get("end_date")
     start_date = request.data.get("start_date")
-
     if not yield_amount or not end_date or not start_date:
         return Response({"error": "Missing fields"}, status=400)
 
+    # Copy crop info to Harvest
     harvest = Harvest.objects.create(
         user=request.user,
         plot=plot,
-        crop=crop,
+        crop_type=crop.crop_type,
+        crop_variety=crop.crop_variety,
         start_date=start_date,
         end_date=end_date,
         yield_amount=yield_amount,
         comments=comments,
     )
-    crop.status = "closed"
-    crop.save()
     data = HarvestSerializer(harvest).data
+    crop.delete()
     return Response(data)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

@@ -251,9 +251,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     setTimeout(() => setErrorMessage(""), 3000);
     return;
   }
-
   try {
-    // 1. Send harvest info to backend
     await api.post(`/api/farm/crops/${harvestCrop.id}/harvest/`, {
       start_date: harvestCrop.created_at || new Date().toISOString(),
       end_date: new Date().toISOString(),
@@ -261,26 +259,25 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       comments,
     });
 
-    // 2. Delete the crop from backend
-    await api.delete(`/api/farm/crops/${harvestCrop.id}/`);
-
-    // 3. Update frontend state
+    // Remove crop from frontend state
     setUserCrops(prev => prev.filter(crop => crop.id !== harvestCrop.id));
+
+    // Close modal and reset form
+    setShowHarvestModal(false);
     setHarvestCrop(null);
     setYieldAmount("");
     setComments("");
-    setShowHarvestModal(false);
 
-    fetchUserCrops();         // Refresh crop table
-    fetchHarvestRecords();    // Refresh harvest records
-
-    setSuccessMessage("Harvest recorded and crop deleted successfully!");
+    // Refresh harvest records and show success
+    fetchHarvestRecords();
+    setSuccessMessage("Harvest recorded and crop removed!");
     setTimeout(() => setSuccessMessage(""), 3000);
   } catch (err) {
-    setErrorMessage("Failed to record harvest or delete crop: " + (err.response?.data?.detail || err.message));
+    setErrorMessage("Failed to record harvest: " + (err.response?.data?.detail || err.message));
     setTimeout(() => setErrorMessage(""), 5000);
   }
 };
+
 
   const handleStatusChange = async (cropId, status) => {
     try {

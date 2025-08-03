@@ -37,29 +37,27 @@ urlpatterns = [
     # Farm
     path('farm/', farm_view, name='farm'),
 
-    # Crop (function-based endpoints for flexibility/backward compatibility)
+    # Crops
     path('farm/crops/', crop_view, name='crop-list'),
     path('farm/crops/<int:crop_id>/', crop_detail_view, name='crop-detail'),
     path('farm/crops/by-plot/<str:plot_key>/', get_crop_by_plot_key, name='crop-by-plot'),
-
-    # Crop status update and harvesting
     path('farm/crops/<int:crop_id>/status/', update_crop_status, name='update-crop-status'),
     path('farm/crops/<int:crop_id>/harvest/', harvest_crop, name='harvest-crop'),
 
-    # Harvest list
+    # Harvests
     path('harvests/', list_harvests, name='list-harvests'),
 
-    # Sensor data
+    # Sensor Data
     path('upload-sensor-data/', upload_soil_data, name='upload-sensor-data'),
     path('latest-soil-data/', latest_soil_data, name='latest-soil-data'),
     path('latest-reading/', latest_soil_reading_by_plot, name='latest-reading'),
     path('get-user-plots/', get_user_plot_numbers, name='get-user-plots'),
 
-    # Favorite threads
+    # Favorite Threads
     path('favorites/', get_favorite_threads, name='favorite-threads'),
     path('favorites/add/', add_favorite_thread, name='add-favorite'),
     path('favorites/<int:favorite_id>/', remove_favorite_thread, name='remove-favorite'),
 
-    # Include viewsets (plots and crops)
+    # ViewSets
     path('', include(router.urls)),
 ]

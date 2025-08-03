@@ -69,17 +69,20 @@ class Crop(models.Model):
     def __str__(self):
         return f"{self.crop_type} ({self.plot_number})"
 
+
 class Harvest(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    plot = models.ForeignKey(Plot, to_field='unique_plot_key', on_delete=models.CASCADE)
-    crop = models.ForeignKey(Crop, on_delete=models.SET_NULL, null=True)
+    plot = models.ForeignKey(Plot, on_delete=models.CASCADE)
+    crop_type = models.CharField(max_length=100, default="Unknown")
+    crop_variety = models.CharField(max_length=100, default="Unknown")
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     yield_amount = models.FloatField()
-    comments = models.TextField(blank=True)
+    comments = models.TextField(default="", blank=True)
 
     def __str__(self):
-        return f"Harvest {self.crop} on {self.plot} ({self.end_date})"
+        return f"Harvest {self.crop_type} on {self.plot} ({self.end_date})"
+
 
 class SoilSensorReading(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
