@@ -13,10 +13,7 @@ export default function DashboardScreen({
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1000) // Simulate loading for 1 second
-
+    const timer = setTimeout(() => setLoading(false), 1000)
     return () => clearTimeout(timer)
   }, [])
 
@@ -25,43 +22,44 @@ export default function DashboardScreen({
   }
 
   return (
-    <div className="flex flex-col h-full pb-12 bg-[#d1e6b2]">
-      <div className="p-4 bg-white">
-        <h1 className="text-lg font-semibold text-center">Smart Harvest Africa</h1>
+    <div className="flex flex-col h-full pb-16 bg-[#d1e6b2]">
+      <div className="p-5 bg-white rounded-b-2xl shadow">
+        <h1 className="text-xl font-bold text-center text-gray-800">SmartHarvest Africa</h1>
       </div>
 
-      <div className="flex-1 p-4 grid grid-cols-2 gap-4">
-        <div
-          className="flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white"
-          onClick={onSoilHealthClick}
-        >
-          <BarChart3 className="h-10 w-10 text-[#2a9d4a] mb-2" />
-          <span className="text-sm font-medium">Soil Health</span>
-        </div>
-
-        <div
-          className="flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white"
-          onClick={onInsightsClick}
-        >
-          <Leaf className="h-10 w-10 text-[#2a9d4a] mb-2" />
-          <span className="text-sm font-medium">Insights</span>
-        </div>
-
-        <div
-          className="flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white"
-          onClick={onRecommendationsClick}
-        >
-          <ListChecks className="h-10 w-10 text-[#2a9d4a] mb-2" />
-          <span className="text-sm font-medium">Recommendations</span>
-        </div>
-
-        <div
-          className="flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-gray-50 border rounded shadow bg-white"
-          onClick={onDiscussionForumClick}
-        >
-          <MessageSquare className="h-10 w-10 text-[#2a9d4a] mb-2" />
-          <span className="text-sm font-medium">Discussion Forum</span>
-        </div>
+      <div className="flex-1 p-5 grid grid-cols-2 gap-4">
+        {/* Card Component */}
+        {[
+          {
+            label: "Soil Health",
+            icon: BarChart3,
+            onClick: onSoilHealthClick,
+          },
+          {
+            label: "Insights",
+            icon: Leaf,
+            onClick: onInsightsClick,
+          },
+          {
+            label: "Recommendations",
+            icon: ListChecks,
+            onClick: onRecommendationsClick,
+          },
+          {
+            label: "Discussion Forum",
+            icon: MessageSquare,
+            onClick: onDiscussionForumClick,
+          },
+        ].map(({ label, icon: Icon, onClick }) => (
+          <div
+            key={label}
+            onClick={onClick}
+            className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+          >
+            <Icon className="h-9 w-9 text-green-600 mb-2" />
+            <span className="text-sm font-semibold text-gray-800">{label}</span>
+          </div>
+        ))}
       </div>
     </div>
   )

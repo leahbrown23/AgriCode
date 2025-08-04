@@ -363,12 +363,8 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
               </div>
               <p className="text-gray-500 font-medium">No favorite threads yet</p>
               <p className="text-sm text-gray-400 mb-4">Start exploring the forum to add favorites</p>
-              <button
-                onClick={() => {/* Navigate to forum - you can implement this */}}
-                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded-lg transition-colors"
-              >
-                Browse Forum
-              </button>
+              
+
             </div>
           ) : (
             <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -411,4 +407,4 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
       </div>
     </div>
   )
-}
+} 
