@@ -3,7 +3,6 @@
 import { useState } from "react"
 import api from "../api/api"
 
-
 export default function LoginForm({ onLoginClick, onSignUpClick }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -11,44 +10,42 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
   const [isError, setIsError] = useState(false)
   const [messageBoxVisible, setMessageBoxVisible] = useState(false)
 
-const handleLogin = async () => {
-  if (!email || !password) {
-    setMessage("Please enter both email and password.")
-    setIsError(true)
-    setMessageBoxVisible(true)
-    return
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setMessage("Please enter both email and password.")
+      setIsError(true)
+      setMessageBoxVisible(true)
+      return
+    }
+
+    try {
+      const res = await api.post("/api/login/", {
+        username: email,
+        password: password
+      })
+
+      localStorage.setItem("accessToken", res.data.access)
+      localStorage.setItem("refreshToken", res.data.refresh)
+
+      setMessage("Login successful! Redirecting to dashboard...")
+      setIsError(false)
+      setMessageBoxVisible(true)
+
+      setTimeout(() => {
+        if (onLoginClick) onLoginClick()
+      }, 2000)
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || "Invalid email or password. Please try again."
+      setMessage("Login failed: " + errorMsg)
+      setIsError(true)
+      setMessageBoxVisible(true)
+    }
   }
-
-  try {
-    const res = await api.post("/api/login/", {
-      username: email,
-      password: password
-    })
-
-    localStorage.setItem("accessToken", res.data.access)
-    localStorage.setItem("refreshToken", res.data.refresh)
-
-    setMessage("Login successful! Redirecting to dashboard...")
-    setIsError(false)
-    setMessageBoxVisible(true)
-
-    setTimeout(() => {
-      if (onLoginClick) onLoginClick()
-    }, 2000)
-  } catch (error) {
-    const errorMsg = error.response?.data?.detail || "Invalid email or password. Please try again."
-    setMessage("Login failed: " + errorMsg)
-    setIsError(true)
-    setMessageBoxVisible(true)
-  }
-}
-
 
   const closeMessageBox = () => {
     setMessageBoxVisible(false)
   }
 
-  // Updated MessageBox component with your app's styling
   const MessageBox = ({ message, isError, onClose }) => (
     <div
       className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
@@ -85,6 +82,11 @@ const handleLogin = async () => {
 
   return (
     <div className="flex flex-col items-center justify-center h-full bg-[#d1e6b2] p-6">
+      {/* Heading */}
+      <h1 className="text-4xl font-bold text-[#2a9d4a] mb-8 text-center" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+        SmartHarvest Africa
+      </h1>
+
       <div className="w-full space-y-4 max-w-md">
         <input
           type="email"
