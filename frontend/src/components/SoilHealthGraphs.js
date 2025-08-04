@@ -47,11 +47,43 @@ export default function SoilHealthGraphs({ data }) {
                 <ResponsiveContainer width="100%" height={140}>
                   <LineChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="timestamp" fontSize={12} tick={{ fill: "#64748b" }} />
-                    <YAxis fontSize={12} tick={{ fill: "#64748b" }} domain={['auto', 'auto']} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey={g.key} stroke={g.color} strokeWidth={3} dot={false} />
-                    <Brush dataKey="timestamp" height={18} stroke="#a78bfa" travellerWidth={8} />
+                    <XAxis
+                      dataKey="timestamp"
+                      fontSize={12}
+                      tick={{ fill: "#64748b" }}
+                    />
+                    <YAxis
+                      fontSize={12}
+                      tick={{ fill: "#64748b" }}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip
+                      formatter={(value) =>
+                        typeof value === 'number' ? value.toFixed(2) : value
+                      }
+                      contentStyle={{
+                        backgroundColor: "#fff",
+                        borderRadius: "12px",
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+                        border: "1px solid #ddd",
+                        padding: "8px",
+                      }}
+                      labelStyle={{ fontWeight: 600 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={g.key}
+                      stroke={g.color}
+                      strokeWidth={3}
+                      dot={false}
+                    />
+                    <Brush
+                      dataKey="timestamp"
+                      height={18}
+                      stroke="#4ade80" // Tailwind green-400
+                      travellerWidth={10}
+                      fill="#d1fae5" // light green fill
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

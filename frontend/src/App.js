@@ -113,9 +113,14 @@ function App() {
           <DiscussionForumScreen
             onBackClick={() => setCurrentScreen("dashboard")}
             onThreadClick={(threadId) => {
-              setSelectedThreadId(threadId)
-              setCurrentScreen("threadView")
-            }}
+  if (threadId) {
+    setSelectedThreadId(threadId)
+    setCurrentScreen("threadView")
+  } else {
+    setCurrentScreen("discussionForum")  // ⬅️ Navigate to forum homepage
+  }
+}}
+
           />
         )
       case "userProfile":
@@ -197,115 +202,93 @@ function App() {
       <div className="w-full max-w-sm h-[600px] overflow-hidden relative bg-white shadow-lg rounded-lg">
         {renderScreen()}
         {isMenuOpen && showNavbar && (
-          <div
-            ref={menuRef}
-            className="absolute bottom-12 right-0 w-48 bg-white border border-gray-200 rounded-t-md shadow-lg z-50"
-          >
-            <div className="py-3">
-              <div className="px-4 mb-2">
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("selectedPlot")
-                    setCurrentScreen("login")
-                    setIsMenuOpen(false)
-                  }}
-                  className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600"
-                >
-                  <LogOut size={16} className="mr-2" /> Logout
-                </button>
-              </div>
-              <div className="border-t border-gray-200 mt-1 pt-1">
-                <button
-                  onClick={() => setIsDashboardExpanded(!isDashboardExpanded)}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"
-                >
-                  <span>Dashboard</span> {isDashboardExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </button>
-                {isDashboardExpanded && (
-                  <div className="pl-4">
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("insights")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Insights
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("soilHealth")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Soil Health
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("recommendations")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Recommendations
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("discussionForum")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Discussion
-                    </button>
-                  </div>
-                )}
-                <button
-                  onClick={() => setIsManagementExpanded(!isManagementExpanded)}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"
-                >
-                  <span>Management</span>{" "}
-                  {isManagementExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </button>
-                {isManagementExpanded && (
-                  <div className="pl-4">
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("farmSetup")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      User Management
-                    </button>
+  <div
+    ref={menuRef}
+    className="absolute bottom-12 right-0 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
+  >
+    <div className="py-3 space-y-1">
 
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("plotManagement")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Plot Management
-                    </button>
+      {/* Logout Button */}
+      <div className="px-4 pb-2">
+        <button
+          onClick={() => {
+            localStorage.removeItem("selectedPlot")
+            setCurrentScreen("login")
+            setIsMenuOpen(false)
+          }}
+          className="w-full flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition"
+        >
+          <LogOut size={16} className="mr-2" /> Logout
+        </button>
+      </div>
 
-                    <button
-                      onClick={() => {
-                        setCurrentScreen("cropSetup")
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Crop Management
-                    </button>
-                    
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* DASHBOARD SECTION */}
+      <div className="px-4">
+        <button
+          onClick={() => setIsDashboardExpanded(!isDashboardExpanded)}
+          className="w-full flex justify-between items-center text-sm text-gray-700 font-medium hover:bg-gray-100 rounded-lg px-3 py-2 transition"
+        >
+          Dashboard
+          {isDashboardExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+        {isDashboardExpanded && (
+          <div className="space-y-1 pl-3 mt-1">
+            {[
+              { label: "Insights", screen: "insights" },
+              { label: "Soil Health", screen: "soilHealth" },
+              { label: "Recommendations", screen: "recommendations" },
+              { label: "Discussion", screen: "discussionForum" },
+            ].map(({ label, screen }) => (
+              <button
+                key={screen}
+                onClick={() => {
+                  setCurrentScreen(screen)
+                  setIsMenuOpen(false)
+                }}
+                className="w-full text-left text-sm text-gray-600 hover:bg-gray-100 rounded px-2 py-1 transition"
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
+      </div>
+
+      {/* MANAGEMENT SECTION */}
+      <div className="px-4 mt-1">
+        <button
+          onClick={() => setIsManagementExpanded(!isManagementExpanded)}
+          className="w-full flex justify-between items-center text-sm text-gray-700 font-medium hover:bg-gray-100 rounded-lg px-3 py-2 transition"
+        >
+          Management
+          {isManagementExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+        {isManagementExpanded && (
+          <div className="space-y-1 pl-3 mt-1">
+            {[
+              { label: "User Management", screen: "farmSetup" },
+              { label: "Plot Management", screen: "plotManagement" },
+              { label: "Crop Management", screen: "cropSetup" },
+            ].map(({ label, screen }) => (
+              <button
+                key={screen}
+                onClick={() => {
+                  setCurrentScreen(screen)
+                  setIsMenuOpen(false)
+                }}
+                className="w-full text-left text-sm text-gray-600 hover:bg-gray-100 rounded px-2 py-1 transition"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+        
         {showNavbar && (
           <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
             <button

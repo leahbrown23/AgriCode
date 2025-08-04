@@ -455,7 +455,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
           </div>
         </div>
 
-        {/* CROPS TABLE */}
+      {/* CROPS TABLE */}
 <div className="bg-white rounded-xl shadow-lg overflow-hidden">
   <div className="p-4 border-b border-gray-100">
     <div className="flex items-center">
@@ -500,65 +500,58 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
       filteredCrops.map((crop) => (
         <div
           key={crop.id}
-          className="p-4 hover:bg-gray-50 transition-colors duration-150 ease-in-out cursor-pointer flex items-center justify-between"
+          className="p-4 bg-white hover:bg-gray-50 shadow-sm hover:shadow-md rounded-xl transition-all duration-200 ease-in-out cursor-pointer flex justify-between items-start space-x-4"
           onClick={(e) => {
             if (
               !e.target.closest(".status-control") &&
               !e.target.closest(".harvest-btn") &&
               !e.target.closest(".edit-btn")
             ) {
-              setEditingCrop(crop);
+              setEditingCrop(crop)
             }
           }}
         >
-          <div className="flex items-center flex-1 min-w-0">
-            <div className="w-2 h-2 bg-green-400 rounded-full mr-3 flex-shrink-0"></div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-green-600">
-                  Plot {crop.plot_number}
-                </span>
-                <span className="text-sm text-gray-900">{crop.crop_variety}</span>
-              </div>
-            </div>
-          </div>
+        <div className="flex flex-col flex-1 min-w-0">
+  <div className="flex items-center mb-1">
+    <div className="w-2 h-2 bg-green-400 rounded-full mr-2" />
+    <span className="text-sm font-semibold text-green-600">
+      Plot {crop.plot_number}
+    </span>
+  </div>
+  <span className="text-sm text-gray-800 truncate">{crop.crop_type}</span>
+  <span className="text-xs text-gray-500 truncate">{crop.crop_variety}</span>
+</div>
+
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div
-              className="status-control flex flex-col items-start gap-y-1"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span className="text-xs text-gray-500">{crop.crop_type}</span>
+            <div className="status-control" onClick={(e) => e.stopPropagation()}>
               <select
-                value={crop.status}
-                onChange={(e) => handleStatusChange(crop.id, e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-xs w-full"
-                style={{ minWidth: 100 }}
-              >
-                <option value="planting">Planting</option>
-                <option value="growing">Growing</option>
-                <option value="harvesting">Harvesting</option>
-              </select>
+  value={crop.status}
+  onChange={(e) => handleStatusChange(crop.id, e.target.value)}
+  className="rounded-xl border border-green-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-500 shadow-sm transition-all"
+>
+  <option value="planting">Planting</option>
+  <option value="growing">Growing</option>
+  <option value="harvesting">Harvesting</option>
+</select>
             </div>
             <button
               onClick={(e) => {
-                e.stopPropagation();
-                setHarvestCrop(crop);
-                setShowHarvestModal(true);
+                e.stopPropagation()
+                setHarvestCrop(crop)
+                setShowHarvestModal(true)
               }}
-              className="harvest-btn bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs"
-              style={{ minWidth: 70 }}
+              className="harvest-btn bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all"
             >
               Harvest
             </button>
             <button
               onClick={(e) => {
-                e.stopPropagation();
-                setEditingCrop(crop);
+                e.stopPropagation()
+                setEditingCrop(crop)
               }}
-              className="edit-btn"
-              style={{ background: "none", border: "none", padding: 0 }}
+              className="edit-btn p-1 rounded-full hover:bg-gray-100 transition-all"
             >
-              <Edit className="w-4 h-4 text-gray-400" />
+              <Edit className="w-4 h-4 text-gray-500" />
             </button>
           </div>
         </div>
@@ -566,6 +559,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     )}
   </div>
 </div>
+
 
         {/* Harvest Modal */}
 {showHarvestModal && harvestCrop && (
