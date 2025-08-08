@@ -20,7 +20,7 @@ from .views import (
     update_crop_status,
     harvest_crop,
     list_harvests,
-    reading_history,  # ✅ NEW import
+    reading_history,
 )
 
 # DRF Router for viewsets
@@ -53,7 +53,7 @@ urlpatterns = [
     path('latest-soil-data/', latest_soil_data, name='latest-soil-data'),
     path('latest-reading/', latest_soil_reading_by_plot, name='latest-reading'),
     path('get-user-plots/', get_user_plot_numbers, name='get-user-plots'),
-    path('reading-history/', reading_history, name='reading-history'),  # ✅ NEW endpoint
+    path('reading-history/', reading_history, name='reading-history'),
 
     # Favorite Threads
     path('favorites/', get_favorite_threads, name='favorite-threads'),

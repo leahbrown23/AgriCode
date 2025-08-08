@@ -30,7 +30,7 @@ class ChatMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'forum_chatmessage'  # This matches the table name in your error
+        db_table = 'forum_chatmessage'
 
     def __str__(self):
-        return f"Message by {self.user.username}: {self.content[:50]}"  # Fixed: was self.title, now self.content
+        return f"Message by {self.user.username}: {self.content[:50]}"
