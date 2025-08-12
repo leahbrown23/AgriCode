@@ -189,13 +189,13 @@ export default function SoilHealthScreen({
         <div className="space-y-3">
           <button
             onClick={onUploadSensorClick}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full py-2 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
           >
             Upload Sensor Data
           </button>
           <button
             onClick={onViewSensorClick}
-            className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white w-full py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+            className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white w-full py-2 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
           >
             View Sensor Data
           </button>
@@ -261,7 +261,7 @@ export default function SoilHealthScreen({
         </div>
 
         {isLoadingPlotData ? (
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white rounded-xl shadow-lg p-5">
             <div className="text-center mb-6">
               <div className="flex items-center justify-center mb-2">
                 <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
@@ -270,7 +270,7 @@ export default function SoilHealthScreen({
               <div className="text-6xl font-bold text-gray-300 mb-2">--</div>
               <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto"></div>
             </div>
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-7">
               <LoadingSpinner />
             </div>
           </div>
@@ -287,7 +287,7 @@ export default function SoilHealthScreen({
             </div>
 
             {/* Score Card */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-5">
               <div className="text-center mb-6">
                 <div className="flex items-center justify-center mb-2">
                   <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
@@ -296,7 +296,7 @@ export default function SoilHealthScreen({
                   </button>
                   {showExplanation && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                      <div className="bg-white rounded-xl shadow-lg max-w-sm p-6 text-sm text-gray-800">
+                      <div className="bg-white rounded-xl shadow-lg max-w-sm p-5 text-sm text-gray-800">
                         <h2 className="text-lg font-bold mb-3">How Soil Score is Calculated</h2>
                         <p className="mb-2">
                           The Soil Health Score (SHS) is a weighted average of key soil nutrients and pH:
@@ -421,7 +421,7 @@ export default function SoilHealthScreen({
             </div>
 
             {/* Recommendations */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-5">
               <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <div className="p-2 bg-blue-100 rounded-lg mr-3">
                   <Info className="w-4 h-4 text-blue-600" />
@@ -459,7 +459,7 @@ export default function SoilHealthScreen({
         ) : (
           <>
             {/* Score Card - No Data */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-5">
               <div className="text-center mb-6">
                 <div className="flex items-center justify-center mb-2">
                   <span className="text-sm font-medium text-gray-400 mr-1">SOIL HEALTH SCORE</span>
@@ -514,7 +514,7 @@ export default function SoilHealthScreen({
             </div>
 
             {/* Recommendations - No Data */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-5">
               <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <div className="p-2 bg-gray-100 rounded-lg mr-3">
                   <Info className="w-4 h-4 text-gray-400" />
@@ -531,7 +531,7 @@ export default function SoilHealthScreen({
             </div>
 
             {/* Soil Trends - No Data */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-5">
               <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <div className="p-2 bg-gray-100 rounded-lg mr-3">
                   <Activity className="w-4 h-4 text-gray-400" />
