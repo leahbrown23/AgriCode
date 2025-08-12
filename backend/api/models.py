@@ -9,20 +9,20 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.username
 
-# Add this new model for the favorites functionality
+
 class CustomerFavoriteThread(models.Model):
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer_favorites')
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
-        db_table = 'api_customer_favorite_threads'  # This will use your Supabase table name
+        db_table = 'api_customer_favorite_threads'
         unique_together = ['customer', 'thread']  # Prevent duplicate favorites
     
     def __str__(self):
         return f"{self.customer.username} - {self.thread.title}"
 
-# Rest of your existing models...
+
 class Farm(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     farm_name = models.CharField(max_length=100)

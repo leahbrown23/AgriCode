@@ -4,7 +4,7 @@ const api = axios.create({
   baseURL: "http://localhost:8000",
 })
 
-// === Token Refresh Logic with Queue Support ===
+// === Token Refresh with Queue Support ===
 let isRefreshing = false
 let failedQueue = []
 
