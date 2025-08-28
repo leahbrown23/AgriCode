@@ -103,21 +103,19 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   }
 
   const fetchHarvestRecords = async () => {
-  setHarvestLoading(true)
+  setHarvestLoading(true);
   try {
-    const res = await api.get("/api/harvests/")
-    setHarvestRecords(res.data)
+    const res = await api.get("/api/farm/harvests/");  // <-- not /api/harvests/
+    setHarvestRecords(res.data);
   } catch (err) {
-    console.error("Failed to fetch harvest records:", err)
+    console.error("Failed to fetch harvest records:", err);
   } finally {
-    setHarvestLoading(false)
+    setHarvestLoading(false);
   }
-}
+};
 
-  const getPlotDisplayName = (uniqueId) => {
-    const plot = userPlots.find((p) => p.unique_plot_id === uniqueId)
-    return plot ? `Plot ${plot.plot_id} - ${plot.location}` : uniqueId
-  }
+
+  
 
   const getRawPlotId = (uniqueKey) => {
     if (!uniqueKey || typeof uniqueKey !== "string") return ""
@@ -251,32 +249,52 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     setTimeout(() => setErrorMessage(""), 3000);
     return;
   }
+
   try {
-    await api.post(`/api/farm/crops/${harvestCrop.id}/harvest/`, {
+    // Prefer numeric plot_id coming from the crop object
+    let plotId = harvestCrop?.plot_id;
+
+    // Fallback: derive numeric id from your plots list using plot_number (code)
+    if (!plotId) {
+      const match = userPlots.find(
+        (p) => String(p.plot_id) === String(harvestCrop?.plot_number)
+      );
+      if (match) plotId = match.id;
+    }
+
+    if (!plotId) {
+      setErrorMessage("Could not resolve plot for this crop");
+      setTimeout(() => setErrorMessage(""), 4000);
+      return;
+    }
+
+    await api.post("/api/farm/harvests/", {
+      plot_id: plotId,
+      crop_type: harvestCrop.crop_type || "Unknown",
+      crop_variety: harvestCrop.crop_variety || "Unknown",
       start_date: harvestCrop.created_at || new Date().toISOString(),
       end_date: new Date().toISOString(),
-      yield_amount: yieldAmount,
+      yield_amount: Number(yieldAmount),
       comments,
     });
 
-    // Remove crop from frontend state
-    setUserCrops(prev => prev.filter(crop => crop.id !== harvestCrop.id));
-
-    // Close modal and reset form
+    // Remove crop locally; refresh history
+    setUserCrops((prev) => prev.filter((c) => c.id !== harvestCrop.id));
     setShowHarvestModal(false);
     setHarvestCrop(null);
     setYieldAmount("");
     setComments("");
-
-    // Refresh harvest records and show success
     fetchHarvestRecords();
     setSuccessMessage("Harvest recorded and crop removed!");
     setTimeout(() => setSuccessMessage(""), 3000);
   } catch (err) {
-    setErrorMessage("Failed to record harvest: " + (err.response?.data?.detail || err.message));
+    setErrorMessage(
+      "Failed to record harvest: " + (err.response?.data?.error || err.message)
+    );
     setTimeout(() => setErrorMessage(""), 5000);
   }
 };
+
 
 
   const handleStatusChange = async (cropId, status) => {

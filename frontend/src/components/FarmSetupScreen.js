@@ -1,11 +1,11 @@
 "use client"
 
-import { ArrowLeft, User, MapPin, Sprout, Ruler, Star , MessageSquare, Eye } from "lucide-react"
+import { ArrowLeft, User, MapPin, Sprout, Ruler, Star, MessageSquare, Eye } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
-export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThreadClick, onManagePlotsClick }) {
+export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThreadClick, onManagePlotsClick, onSensorSetupClick }) {
   const [user, setUser] = useState(null)
   const [farmExists, setFarmExists] = useState(false)
   const [farmName, setFarmName] = useState("")
@@ -21,12 +21,14 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
 
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
 
+  // Load profile + farm
   useEffect(() => {
     const fetchProfileAndFarm = async () => {
       if (!token) return
       try {
         const profileRes = await api.get("/api/profile/")
         setUser(profileRes.data)
+
         const farmRes = await api.get("/api/farm/")
         const farmData = farmRes.data
         setFarmExists(true)
@@ -50,18 +52,17 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
     fetchProfileAndFarm()
   }, [token])
 
+  // Load favorites
   useEffect(() => {
     const fetchFavoritesFromApi = async () => {
       if (!token) return
       setLoadingFavorites(true)
       try {
-        // Get favorite thread records for current user
         const favRes = await api.get("/api/favorites/")
-        const favs = favRes.data // [{id, thread_id}]
+        const favs = favRes.data
         const favoriteIds = favs.map(fav => fav.thread_id)
 
         if (favoriteIds.length > 0) {
-          // Get all threads and filter by favorites
           const threadsRes = await api.get("/forum/threads/")
           const allThreads = threadsRes.data.results || []
           const filtered = allThreads.filter(t => favoriteIds.includes(t.id))
@@ -120,10 +121,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
   }
 
   const handleThreadClick = (threadId) => {
-    // Make sure onThreadClick is called properly
-    if (onThreadClick) {
-      onThreadClick(threadId)
-    }
+    if (onThreadClick) onThreadClick(threadId)
   }
 
   if (loading) return <LoadingSpinner />
@@ -139,7 +137,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
       </div>
 
       <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-4 space-y-4">
-        {/* User Details Section */}
+        {/* User Details */}
         {user && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center mb-4">
@@ -181,7 +179,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
           </div>
         )}
 
-        {/* Farm Details Section */}
+        {/* Farm Details */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
@@ -201,6 +199,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
           </div>
 
           <div className="space-y-4">
+            {/* Farm Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Farm Name</label>
               <div className="relative">
@@ -209,9 +208,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                   type="text"
                   placeholder="Enter farm name"
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
-                    isEditing
-                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      : "border-gray-200 bg-gray-50"
+                    isEditing ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500" : "border-gray-200 bg-gray-50"
                   }`}
                   value={farmName}
                   onChange={(e) => setFarmName(e.target.value)}
@@ -220,6 +217,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
               </div>
             </div>
 
+            {/* Location */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
               <div className="relative">
@@ -228,9 +226,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                   type="text"
                   placeholder="Enter location"
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
-                    isEditing
-                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      : "border-gray-200 bg-gray-50"
+                    isEditing ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500" : "border-gray-200 bg-gray-50"
                   }`}
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -239,6 +235,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
               </div>
             </div>
 
+            {/* Crop Types */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Crop Types</label>
               <div className="relative">
@@ -247,9 +244,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                   type="text"
                   placeholder="Enter crop types"
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
-                    isEditing
-                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      : "border-gray-200 bg-gray-50"
+                    isEditing ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500" : "border-gray-200 bg-gray-50"
                   }`}
                   value={cropTypes}
                   onChange={(e) => setCropTypes(e.target.value)}
@@ -258,6 +253,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
               </div>
             </div>
 
+            {/* Size */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Size (hectares)</label>
               <div className="relative">
@@ -266,9 +262,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                   type="number"
                   placeholder="Enter size in hectares"
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm transition-colors ${
-                    isEditing
-                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      : "border-gray-200 bg-gray-50"
+                    isEditing ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500" : "border-gray-200 bg-gray-50"
                   }`}
                   value={size}
                   onChange={(e) => setSize(e.target.value)}
@@ -277,6 +271,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
               </div>
             </div>
 
+            {/* Livestock */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Livestock</label>
               <div className="relative">
@@ -286,14 +281,10 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                   onChange={(e) => setHasLivestock(e.target.value)}
                   disabled={!isEditing}
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg text-sm appearance-none transition-colors ${
-                    isEditing
-                      ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      : "border-gray-200 bg-gray-50"
+                    isEditing ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500" : "border-gray-200 bg-gray-50"
                   }`}
                 >
-                  <option value="" disabled>
-                    Select livestock option
-                  </option>
+                  <option value="" disabled>Select livestock option</option>
                   <option value="yes">Yes, I have livestock</option>
                   <option value="no">No, I do not have livestock</option>
                 </select>
@@ -328,6 +319,13 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                 </button>
 
                 <button
+                  onClick={onSensorSetupClick}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                >
+                  Manage Sensors
+                </button>
+
+                <button
                   onClick={onAddCropsClick}
                   className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-3 rounded-xl font-medium shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
                 >
@@ -338,7 +336,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
           </div>
         </div>
 
-        {/* My Threads Section - Enhanced */}
+        {/* My Threads */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
@@ -348,14 +346,12 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
               <h2 className="text-lg font-bold text-gray-800">My Threads</h2>
             </div>
             <div className="text-sm text-gray-500">
-              {favoriteThreads.length} thread{favoriteThreads.length !== 1 ? 's' : ''}
+              {favoriteThreads.length} thread{favoriteThreads.length !== 1 ? "s" : ""}
             </div>
           </div>
 
           {loadingFavorites ? (
-            <div className="flex justify-center py-8">
-              <LoadingSpinner />
-            </div>
+            <div className="flex justify-center py-8"><LoadingSpinner /></div>
           ) : favoriteThreads.length === 0 ? (
             <div className="text-center py-8">
               <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
@@ -363,8 +359,6 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
               </div>
               <p className="text-gray-500 font-medium">No favorite threads yet</p>
               <p className="text-sm text-gray-400 mb-4">Start exploring the forum to add favorites</p>
-              
-
             </div>
           ) : (
             <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -389,9 +383,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
                           <span>{thread.views_count ?? 0} views</span>
                         </div>
                         {thread.created_at && (
-                          <div className="text-gray-400">
-                            {new Date(thread.created_at).toLocaleDateString()}
-                          </div>
+                          <div className="text-gray-400">{new Date(thread.created_at).toLocaleDateString()}</div>
                         )}
                       </div>
                     </div>
@@ -402,9 +394,7 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
             </div>
           )}
         </div>
-
-        <div className="h-6" />
       </div>
     </div>
   )
-} 
+}

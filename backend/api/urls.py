@@ -1,65 +1,78 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+# backend/api/urls.py
+from django.urls import path
+from . import views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import (
-    RegisterView, 
-    ProfileView, 
-    PlotViewSet, 
-    CropViewSet, 
-    farm_view, 
-    crop_view, 
-    crop_detail_view, 
-    upload_soil_data, 
-    latest_soil_data, 
-    latest_soil_reading_by_plot, 
-    get_user_plot_numbers,
-    get_crop_by_plot_key,
-    get_favorite_threads,
-    add_favorite_thread,
-    remove_favorite_thread,
-    update_crop_status,
-    harvest_crop,
-    list_harvests,
-    reading_history,
-)
 
-# DRF Router for viewsets
-router = DefaultRouter()
-router.register(r'farm/plots', PlotViewSet, basename='plot')
-router.register(r'farm/crops', CropViewSet, basename='crop')
 
 urlpatterns = [
+
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # -------------------------
     # Authentication
-    path('register/', RegisterView.as_view(), name='register'),
-    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('profile/', ProfileView.as_view(), name='profile'),
+    # -------------------------
+    path('register/', views.register, name='register'),
+    path('login/', views.login, name='login'),
+    path('logout/', views.logout, name='logout'),
 
-    # Farm
-    path('farm/', farm_view, name='farm'),
+    # -------------------------
+    # Profile & Favorites
+    # -------------------------
+    path('profile/', views.get_profile, name='get_profile'),
+    path('favorites/', views.get_favorites, name='get_favorites'),
 
-    # Crops
-    path('farm/crops/', crop_view, name='crop-list'),
-    path('farm/crops/<int:crop_id>/', crop_detail_view, name='crop-detail'),
-    path('farm/crops/by-plot/<str:plot_key>/', get_crop_by_plot_key, name='crop-by-plot'),
-    path('farm/crops/<int:crop_id>/status/', update_crop_status, name='update-crop-status'),
-    path('farm/crops/<int:crop_id>/harvest/', harvest_crop, name='harvest-crop'),
+    # -------------------------
+    # Farm (single endpoint used by FarmSetupScreen)
+    # -------------------------
+    # GET  /api/farm/ -> current user's farm (404 if none)
+    # POST /api/farm/ -> create farm for current user
+    # PUT  /api/farm/ -> update current user's farm
+    path('farm/', views.farm_view, name='farm_view'),
 
-    # Harvests
-    path('harvests/', list_harvests, name='list-harvests'),
+    # -------------------------
+    # Farm Management (list/create)
+    # -------------------------
+    path('farms/', views.get_farms, name='get_farms'),
+    path('farms/create/', views.create_farm, name='create_farm'),
 
+    # -------------------------
+    # Plot Management
+    # -------------------------
+    path('plots/', views.get_plots, name='get_plots'),
+    path('plots/create/', views.create_plot, name='create_plot'),
+    path('farm/plots/', views.get_farm_plots, name='get_farm_plots'),
+
+    # -------------------------
+    # Sensor Validation & Connection
+    # -------------------------
+    path('sensors/validate/', views.validate_sensor, name='validate_sensor'),
+    path('sensors/connect/', views.connect_sensor, name='connect_sensor'),
+    path('sensors/activate/<int:device_id>/', views.activate_sensor, name='activate_sensor'),
+
+    # -------------------------
     # Sensor Data
-    path('upload-sensor-data/', upload_soil_data, name='upload-sensor-data'),
-    path('latest-soil-data/', latest_soil_data, name='latest-soil-data'),
-    path('latest-reading/', latest_soil_reading_by_plot, name='latest-reading'),
-    path('get-user-plots/', get_user_plot_numbers, name='get-user-plots'),
-    path('reading-history/', reading_history, name='reading-history'),
+    # -------------------------
+    path('sensors/data/<int:plot_id>/', views.get_sensor_data, name='get_sensor_data'),
 
-    # Favorite Threads
-    path('favorites/', get_favorite_threads, name='favorite-threads'),
-    path('favorites/add/', add_favorite_thread, name='add-favorite'),
-    path('favorites/<int:favorite_id>/', remove_favorite_thread, name='remove-favorite'),
+    # Soil Health (SoilSensorReading)
+    path('latest-reading/', views.latest_reading, name='latest_reading'),
+    path('reading-history/', views.reading_history, name='reading_history'),
 
-    # ViewSets
-    path('', include(router.urls)),
+    # -------------------------
+    # Simulation (for FarmSetupScreen)
+    # -------------------------
+    path('sim/status/', views.sim_status, name='sim_status'),
+    path('sim/devices/<int:device_id>/toggle/', views.toggle_device, name='toggle_device'),
+
+    # -------------------------
+    # Crops & Harvests
+    # -------------------------
+    path('farm/crops/', views.farm_crops, name='farm_crops'),                 # GET (list), POST (create)
+    path('farm/crops/<int:crop_id>/status/', views.update_crop_status, name='update_crop_status'),
+    path('farm/crops/<int:crop_id>/harvest/', views.harvest_crop, name='harvest_crop'),  # ✅ add per-plot harvest
+
+    # Keep both routes so your frontend can call either `/api/harvests/` or `/api/farm/harvests/`
+    path('farm/harvests/', views.farm_harvests, name='farm_harvests'),        # GET (history), POST (optional)
+    path('harvests/', views.farm_harvests, name='farm_harvests_root'),        # ✅ alias for compatibility
 ]
