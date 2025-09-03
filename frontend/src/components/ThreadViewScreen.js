@@ -1,7 +1,9 @@
-import { ArrowLeft } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import api from "../api/api"
-import LoadingSpinner from "./LoadingSpinner"
+import { ArrowLeft } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import api from "../api/api";
+import { checkProfanity } from '../utils/profanityAPI';
+import { ProfanityAlertModal } from "./Alert";
+import LoadingSpinner from "./LoadingSpinner";
 
 export default function ThreadViewScreen({ threadId, onBackClick }) {
   const [thread, setThread] = useState(null)
@@ -13,6 +15,8 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   const [hasMore, setHasMore] = useState(true)
   const [screenLoading, setScreenLoading] = useState(true)
   const messageEndRef = useRef(null)
+  const [showProfanityAlert, setShowProfanityAlert] = useState(false)
+
 
   const LIMIT = 10
 
@@ -41,10 +45,12 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
   }
 
   const resetMessages = async () => {
+    setLoading(true) // start spinner
     setMessages([])
     setNextOffset(0)
     setHasMore(true)
     await loadOlderMessages(0)
+    setLoading(false) // stop spinner after messages loaded
   }
 
   const loadOlderMessages = async (offset = nextOffset) => {
@@ -92,12 +98,19 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
     setError(null)
 
     try {
+      const result = await checkProfanity(newMessage)
+
+      if (result?.isProfanity) {
+        setShowProfanityAlert(true)
+        setLoading(false)
+        return // dont send to backend
+      }
       await api.post(`/forum/chats/`, {
         thread: threadId,
         content: newMessage,
       })
       setNewMessage("")
-      resetMessages()
+      await resetMessages()
     } catch (err) {
       console.error("Error sending message:", err)
       setError("Failed to send message")
@@ -131,6 +144,22 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         id="chat-scroll-container"
         className="flex-1 overflow-y-auto px-4 pt-2 pb-28 space-y-3 bg-[#f9f9f9] min-h-0"
       >
+      {loading ? (
+      <div className="flex justify-center items-center mt-4">
+        <LoadingSpinner />
+      </div>
+      ) : (
+    <>
+      {hasMore && (
+        <div className="text-center">
+          <button
+            onClick={() => loadOlderMessages()}
+            className="text-sm text-blue-600 underline hover:text-blue-800"
+          >
+            Load older messages
+          </button>
+        </div>
+      )}
         {hasMore && (
           <div className="text-center">
             <button
@@ -158,6 +187,8 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
           ))
         )}
         <div ref={messageEndRef} />
+        </>
+      )}
       </div>
 
       {/* Input bar */}
@@ -176,6 +207,13 @@ export default function ThreadViewScreen({ threadId, onBackClick }) {
         >
           Send
         </button>
+        <ProfanityAlertModal
+      open={showProfanityAlert}
+      message="Your message contains inappropriate language. Please revise."
+      autoCloseMs={2000}
+      onClose={() => setShowProfanityAlert(false)}
+      />
+
       </div>
 
       {/* Error message */}
