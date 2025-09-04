@@ -112,7 +112,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('No simulation is currently running'))
             return
 
-        self.stdout.write('\n🛑 Stopping sensor simulation...')
+        self.stdout.write('\n Stopping sensor simulation...')
         self.running = False
         
         if self.thread and self.thread.is_alive():
