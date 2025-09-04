@@ -1,10 +1,11 @@
 from django.shortcuts import render
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from .models import Topic, Thread, ChatMessage
 from .serializers import TopicSerializer, ThreadSerializer, ChatMessageSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
+import requests
 
 
 class ChatPagination(LimitOffsetPagination):
@@ -65,6 +66,32 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
             return ChatMessage.objects.filter(thread_id=thread_id).order_by('-created_at')
         return ChatMessage.objects.none()
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        message = request.data.get("content", "")
+
+        try:
+            res = requests.post(
+                "https://vector.profanity.dev",
+                json={"message": message},
+                timeout=5,
+            )
+            data = res.json()
+
+            # Adjust check depending on API response format
+            if data.get("isProfanity"):
+                return Response(
+                    {"error": "Message contains inappropriate language."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except requests.RequestException:
+            return Response(
+                {"error": "Profanity check service unavailable."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 

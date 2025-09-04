@@ -6,9 +6,9 @@ import api from "../api/api"
 /** Reusable modal with success/error variants */
 function ModalToast({ open, title = "Success", message, variant = "success", onClose, autoCloseMs = 1500 }) {
   const isSuccess = variant === "success"
-  const badgeBg = isSuccess ? "bg-emerald-50 ring-emerald-100" : "bg-rose-50 ring-rose-100"
-  const iconColor = isSuccess ? "text-emerald-600" : "text-rose-600"
-  const buttonBg = isSuccess ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500"
+  const badgeBg = isSuccess ? "bg-green-100 ring-green-200" : "bg-rose-50 ring-rose-100"
+  const iconColor = isSuccess ? "text-[#2a9d4a]" : "text-rose-600"
+  const buttonBg = isSuccess ? "bg-[#2a9d4a] hover:bg-[#238a3e] focus-visible:ring-[#2a9d4a]"
                              : "bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500"
 
   const onKeyDown = useCallback((e) => {
@@ -71,8 +71,9 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [toastOpen, setToastOpen] = useState(false)
-  const [toastVariant, setToastVariant] = useState("success") // "success" | "error"
+  const [toastVariant, setToastVariant] = useState("success")
   const [toastMessage, setToastMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -82,24 +83,27 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
       return
     }
 
+    setIsLoading(true)
     try {
       const res = await api.post("/api/login/", {
         username: email,
-        password: password
+        password: password,
       })
 
-      localStorage.setItem("accessToken", res.data.access)
-      localStorage.setItem("refreshToken", res.data.refresh)
+      // Save tokens for interceptors/refresh
+      if (res.data?.access) localStorage.setItem("accessToken", res.data.access)
+      if (res.data?.refresh) localStorage.setItem("refreshToken", res.data.refresh)
 
       setToastVariant("success")
       setToastMessage("Login successful! Redirecting to dashboard...")
       setToastOpen(true)
-      // on close (or auto-close) we continue in onToastClose handler below
     } catch (error) {
       const errorMsg = error?.response?.data?.detail || "Invalid email or password. Please try again."
       setToastVariant("error")
       setToastMessage(errorMsg)
       setToastOpen(true)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -110,39 +114,97 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-[#d1e6b2] p-6">
-      <div className="w-full space-y-4 max-w-md">
-        <h1 className="text-4xl font-bold text-[#2a9d4a] mb-2 text-center tracking-tight">SmartHarvest</h1>
+    <div className="min-h-screen bg-[#c7dbb5] flex flex-col">
+      {/* Header */}
+      <div className="bg-white shadow-sm p-4">
+        <div className="flex items-center justify-center">
+          <h1 className="text-xl font-semibold text-gray-800">Welcome to AgriCode</h1>
+        </div>
+      </div>
 
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full bg-white border-2 border-gray-200 p-3 rounded-lg text-gray-800 placeholder-gray-500 focus:border-[#2a9d4a] focus:outline-none transition"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full bg-white border-2 border-gray-200 p-3 rounded-lg text-gray-800 placeholder-gray-500 focus:border-[#2a9d4a] focus:outline-none transition"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+      {/* Content */}
+      <div className="flex-1 p-4 pt-8">
+        <div className="w-full max-w-md mx-auto">
+          {/* SMARTHARVEST Text */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-3">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-[#2a9d4a]">SMARTHARVEST</h2>
+            </div>
+          </div>
 
-        <button
-          onClick={handleLogin}
-          className="bg-[#2a9d4a] hover:bg-[#238a3e] text-white w-full py-3 rounded-lg font-medium transition"
-        >
-          Login
-        </button>
+          {/* Login Form */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            {/* Login icon and title */}
+            <div className="flex items-center mb-6">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                <svg className="w-6 h-6 text-[#2a9d4a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013 3v1"></path>
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-800">Login to Account</h2>
+            </div>
 
-        <div className="text-center mt-6">
-          <button
-            onClick={onSignUpClick}
-            className="text-sm text-gray-700 hover:text-gray-900 hover:underline transition"
-          >
-            Don't have an account? Sign up
-          </button>
+            {/* Form */}
+            <div className="space-y-4">
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  placeholder="john.doe@example.com"
+                  className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a9d4a] focus:border-transparent text-sm"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a9d4a] focus:border-transparent text-sm"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Login Button */}
+              <button
+                onClick={handleLogin}
+                disabled={isLoading}
+                className="w-full bg-[#2a9d4a] hover:bg-[#238a3e] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center text-sm mt-6"
+              >
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Signing In...
+                  </>
+                ) : (
+                  'Login'
+                )}
+              </button>
+
+              {/* Sign Up Link */}
+              <div className="text-center mt-4">
+                <p className="text-sm text-gray-600">
+                  Don't have an account?{' '}
+                  <button
+                    onClick={onSignUpClick}
+                    className="text-[#2a9d4a] hover:text-[#238a3e] font-medium"
+                  >
+                    Sign Up
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -152,7 +214,7 @@ export default function LoginForm({ onLoginClick, onSignUpClick }) {
         message={toastMessage}
         variant={toastVariant}
         onClose={onToastClose}
-        autoCloseMs={toastVariant === "success" ? 1500 : null} // success auto-closes, error waits for user
+        autoCloseMs={toastVariant === "success" ? 1500 : null}
       />
     </div>
   )
