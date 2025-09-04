@@ -66,7 +66,7 @@ function App() {
   useEffect(() => {
     ;(async () => {
       const ok = await tryBootstrapAuth()
-      setCurrentScreen(ok ? "dashboard" : "loginForm")
+      setCurrentScreen(ok ? "dashboard" : "login")
     })()
   }, [])
 
