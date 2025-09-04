@@ -300,8 +300,6 @@ def get_plots(request):
         return Response({'error': str(e)}, status=500)
 
 
-# views.py
-
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def get_farm_plots(request):
@@ -342,6 +340,44 @@ def get_farm_plots(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
+
+# -------------------------
+# NEW: Individual Plot Operations (for PlotManagementScreen edit/delete)
+# -------------------------
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def plot_detail(request, plot_id):
+    """
+    Retrieve, update or delete a specific plot.
+    GET    /api/farm/plots/<id>/  -> get plot details
+    PUT    /api/farm/plots/<id>/  -> update plot (full)
+    PATCH  /api/farm/plots/<id>/  -> update plot (partial)
+    DELETE /api/farm/plots/<id>/  -> delete plot
+    """
+    try:
+        plot = Plot.objects.get(id=plot_id, user=request.user)
+    except Plot.DoesNotExist:
+        return Response({'error': 'Plot not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = PlotSerializer(plot)
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = PlotSerializer(
+            plot, 
+            data=request.data, 
+            partial=(request.method == 'PATCH'),
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        plot.delete()
+        return Response({'message': 'Plot deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['POST'])
@@ -470,8 +506,96 @@ def farm_crops(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# -------------------------
+# NEW: Individual Crop Operations (for CropSetupScreen edit/delete)
+# -------------------------
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def crop_detail(request, crop_id):
+    """
+    Retrieve, update or delete a specific crop.
+    GET    /api/farm/crops/<id>/  -> get crop details
+    PUT    /api/farm/crops/<id>/  -> update crop (full)
+    PATCH  /api/farm/crops/<id>/  -> update crop (partial)
+    DELETE /api/farm/crops/<id>/  -> delete crop
+    """
+    try:
+        crop = Crop.objects.get(id=crop_id, user=request.user)
+    except Crop.DoesNotExist:
+        return Response({'error': 'Crop not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    from rest_framework import status as http_status
+    if request.method == 'GET':
+        return Response({
+            'id': crop.id,
+            'plot_id': crop.plot.id if crop.plot else None,
+            'plot_code': crop.plot.plot_id if crop.plot else None,
+            'plot_number': crop.plot_number,
+            'crop_type': crop.crop_type,
+            'crop_variety': crop.crop_variety,
+            'status': crop.status,
+        })
+    
+    elif request.method in ['PUT', 'PATCH']:
+        data = request.data or {}
+        
+        # Handle plot updates - accept multiple formats
+        plot_id_raw = data.get('plot_id') or data.get('plotId') or data.get('plot')
+        plot_code = data.get('plot_code') or data.get('plotCode') or data.get('plot_number') or data.get('plotNumber')
+        crop_type = data.get('crop_type') or data.get('cropType')
+        crop_variety = data.get('crop_variety') or data.get('cropVariety')
+        
+        # Find the plot if plot info is provided
+        if plot_id_raw or plot_code:
+            plot = None
+            
+            # Try numeric plot ID first
+            if plot_id_raw:
+                try:
+                    plot_pk = int(plot_id_raw)
+                    plot = Plot.objects.get(id=plot_pk, user=request.user)
+                except (ValueError, Plot.DoesNotExist):
+                    pass
+            
+            # Try plot code if numeric ID failed
+            if plot is None and plot_code:
+                try:
+                    plot = Plot.objects.get(plot_id=str(plot_code), user=request.user)
+                except Plot.DoesNotExist:
+                    pass
+            
+            if plot is None:
+                return Response({'error': 'Plot not found'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Update plot references
+            crop.plot = plot
+            crop.plot_number = plot.plot_id
+        
+        # Update other fields
+        if crop_type:
+            crop.crop_type = crop_type
+        if crop_variety:
+            crop.crop_variety = crop_variety
+            
+        try:
+            crop.save()
+            return Response({
+                'id': crop.id,
+                'plot_id': crop.plot.id if crop.plot else None,
+                'plot_code': crop.plot.plot_id if crop.plot else None,
+                'plot_number': crop.plot_number,
+                'crop_type': crop.crop_type,
+                'crop_variety': crop.crop_variety,
+                'status': crop.status,
+            })
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        crop.delete()
+        return Response({'message': 'Crop deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+
 
 @api_view(['PATCH', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -484,20 +608,20 @@ def update_crop_status(request, crop_id: int):
         # must belong to the current user
         crop = Crop.objects.get(id=crop_id, user=request.user)
     except Crop.DoesNotExist:
-        return Response({'error': 'Crop not found'}, status=http_status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Crop not found'}, status=status.HTTP_404_NOT_FOUND)
 
     new_status = (
         request.data.get('status')
         or request.query_params.get('status')
     )
     if not new_status:
-        return Response({'error': 'status is required'}, status=http_status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'status is required'}, status=status.HTTP_400_BAD_REQUEST)
 
     allowed = {code for code, _ in Crop.STATUS_CHOICES}
     if new_status not in allowed:
         return Response(
             {'error': f'Invalid status. Allowed: {sorted(list(allowed))}'},
-            status=http_status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST
         )
 
     crop.status = new_status
@@ -545,6 +669,7 @@ def farm_harvests(request):
                     'id': h.id,
                     'plot_id': h.plot.id if h.plot else None,
                     'plot_code': h.plot.plot_id if h.plot else None,
+                    'plot_number': h.plot.plot_id if h.plot else None,  # Add plot_number for frontend compatibility
                     'crop_type': h.crop_type,
                     'crop_variety': h.crop_variety,
                     'start_date': h.start_date.isoformat(),
@@ -598,6 +723,7 @@ def farm_harvests(request):
             'id': harvest.id,
             'plot_id': plot.id,
             'plot_code': plot.plot_id,
+            'plot_number': plot.plot_id,  # Add plot_number for frontend compatibility
             'crop_type': harvest.crop_type,
             'crop_variety': harvest.crop_variety,
             'start_date': harvest.start_date.isoformat(),
@@ -751,6 +877,26 @@ def toggle_device(request, device_id):
 
 
 # -------------------------
+# NEW: Delete Sensor Device (for SensorSetupScreen remove functionality)
+# -------------------------
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_device(request, device_id):
+    """Delete a sensor device."""
+    try:
+        device = SensorDevice.objects.get(id=device_id, user=request.user)
+        device_name = device.name
+        device.delete()
+        return Response({
+            'message': f'Device "{device_name}" deleted successfully'
+        }, status=status.HTTP_204_NO_CONTENT)
+    except SensorDevice.DoesNotExist:
+        return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# -------------------------
 # Simulation Status & Data
 # -------------------------
 @api_view(['GET'])
@@ -798,10 +944,9 @@ def get_sensor_data(request, plot_id):
         return Response({'error': 'Plot not found'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-    
-    # -------- Soil Health: latest + history (SoilSensorReading) --------
 
 
+# -------- Soil Health: latest + history (SoilSensorReading) --------
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def latest_reading(request):
@@ -880,4 +1025,3 @@ def reading_history(request):
           .values('timestamp', 'pH_level', 'N', 'P', 'K', 'moisture_level')[:limit])
 
     return Response(list(qs))
-

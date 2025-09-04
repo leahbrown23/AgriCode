@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -11,6 +11,7 @@ export default function SensorSetupScreen({ onBackClick }) {
   const [devices, setDevices] = useState([])
   const [showWizard, setShowWizard] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [removingDeviceId, setRemovingDeviceId] = useState(null)
 
   // Load plots for wizard
   useEffect(() => {
@@ -56,6 +57,38 @@ export default function SensorSetupScreen({ onBackClick }) {
     } catch (e) {
       console.error("Toggle failed:", e)
       alert("Failed to toggle device. See console for details.")
+    }
+  }
+
+  const removeSensor = async (device) => {
+    try {
+      setRemovingDeviceId(device.id)
+      
+      // Delete from backend
+      const response = await api.delete(`/api/sim/devices/${device.id}/`)
+      
+      if (response.status === 200 || response.status === 204) {
+        // Remove from local state immediately
+        setDevices(prevDevices => prevDevices.filter(d => d.id !== device.id))
+        
+        // Show success message
+        alert(`${device.name} has been removed successfully!`)
+      } else {
+        throw new Error('Failed to remove sensor')
+      }
+    } catch (error) {
+      console.error('Error removing sensor:', error)
+      alert(`Failed to remove ${device.name}. Please try again.`)
+    } finally {
+      setRemovingDeviceId(null)
+    }
+  }
+
+  const handleRemoveClick = (device) => {
+    const confirmMessage = `Are you sure you want to remove "${device.name}"?\n\nThis will permanently delete the sensor and all its data. This action cannot be undone.`
+    
+    if (window.confirm(confirmMessage)) {
+      removeSensor(device)
     }
   }
 
@@ -128,58 +161,85 @@ export default function SensorSetupScreen({ onBackClick }) {
               <ul className="space-y-3">
                 {devices.map((d) => (
                   <li key={d.id} className="p-4 bg-gray-50 hover:bg-blue-50 rounded-lg border border-gray-100 hover:border-blue-200 transition">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      {/* Left: title + meta */}
-                      <div className="flex min-w-0 items-start gap-3">
-                        <span className={`mt-1 w-3 h-3 rounded-full flex-shrink-0 ${d.is_active ? 'bg-green-500' : 'bg-gray-400'}`}/>
-                        <div className="min-w-0">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left: status dot + sensor info */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <span className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 ${d.is_active ? 'bg-green-500' : 'bg-gray-400'}`}/>
+                        <div className="min-w-0 flex-1">
                           <h3 className="font-semibold text-gray-800 truncate">{d.name}</h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-                            <div className="flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="mt-1 space-y-1">
+                            <div className="flex items-center text-sm text-gray-500">
+                              <svg className="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                   d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                               </svg>
                               <span>Plot #{d.plot}</span>
                             </div>
-                            <div className="flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex items-center text-sm text-gray-500">
+                              <svg className="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                               </svg>
-                              <span className="break-all">{d.external_id}</span>
+                              <span className="truncate">{d.external_id}</span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              d.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {d.is_active ? 'Active' : 'Paused'}
-                            </span>
                           </div>
+                          <span className={`inline-block px-2 py-1 mt-2 text-xs rounded-full font-medium ${
+                            d.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {d.is_active ? 'Active' : 'Paused'}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Right: action button */}
-                      <button
-                        onClick={() => toggleActive(d)}
-                        className={`inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium text-sm transition-transform duration-200 hover:scale-[1.02] ${d.is_active ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}
-                      >
-                        {d.is_active ? (
-                          <>
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            Pause
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m2-10a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            Start
-                          </>
-                        )}
-                      </button>
+                      {/* Right: action buttons - stacked vertically */}
+                      <div className="flex flex-col gap-2 flex-shrink-0">
+                        {/* Start/Pause button */}
+                        <button
+                          onClick={() => toggleActive(d)}
+                          disabled={removingDeviceId === d.id}
+                          className={`inline-flex items-center justify-center px-3 py-1.5 rounded-md font-medium text-xs transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed w-20 ${
+                            d.is_active 
+                              ? 'bg-red-100 text-red-600 hover:bg-red-200' 
+                              : 'bg-green-100 text-green-600 hover:bg-green-200'
+                          }`}
+                        >
+                          {d.is_active ? (
+                            <>
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                              </svg>
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m2-10a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                              </svg>
+                              Start
+                            </>
+                          )}
+                        </button>
+
+                        {/* Remove button */}
+                        <button
+                          onClick={() => handleRemoveClick(d)}
+                          disabled={removingDeviceId === d.id}
+                          className="inline-flex items-center justify-center px-3 py-1.5 rounded-md font-medium text-xs bg-red-500 text-white hover:bg-red-600 transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed w-20"
+                        >
+                          {removingDeviceId === d.id ? (
+                            <>
+                              <div className="w-3 h-3 mr-1 border border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span className="truncate">Removing</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Remove
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}

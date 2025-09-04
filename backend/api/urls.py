@@ -1,4 +1,3 @@
-# backend/api/urls.py
 from django.urls import path
 from . import views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -42,6 +41,7 @@ urlpatterns = [
     path('plots/', views.get_plots, name='get_plots'),
     path('plots/create/', views.create_plot, name='create_plot'),
     path('farm/plots/', views.get_farm_plots, name='get_farm_plots'),
+    path('farm/plots/<int:plot_id>/', views.plot_detail, name='plot_detail'),  # For individual plot operations
 
     # -------------------------
     # Sensor Validation & Connection
@@ -64,15 +64,17 @@ urlpatterns = [
     # -------------------------
     path('sim/status/', views.sim_status, name='sim_status'),
     path('sim/devices/<int:device_id>/toggle/', views.toggle_device, name='toggle_device'),
+    path('sim/devices/<int:device_id>/', views.delete_device, name='delete_device'),  # For deleting sensor devices
 
     # -------------------------
     # Crops & Harvests
     # -------------------------
-    path('farm/crops/', views.farm_crops, name='farm_crops'),                 # GET (list), POST (create)
+    path('farm/crops/', views.farm_crops, name='farm_crops'),                          # GET (list), POST (create)
+    path('farm/crops/<int:crop_id>/', views.crop_detail, name='crop_detail'),          # NEW: GET, PUT, DELETE for individual crops
     path('farm/crops/<int:crop_id>/status/', views.update_crop_status, name='update_crop_status'),
-    path('farm/crops/<int:crop_id>/harvest/', views.harvest_crop, name='harvest_crop'),  # ✅ add per-plot harvest
+    path('farm/crops/<int:crop_id>/harvest/', views.harvest_crop, name='harvest_crop'),
 
     # Keep both routes so your frontend can call either `/api/harvests/` or `/api/farm/harvests/`
     path('farm/harvests/', views.farm_harvests, name='farm_harvests'),        # GET (history), POST (optional)
-    path('harvests/', views.farm_harvests, name='farm_harvests_root'),        # ✅ alias for compatibility
+    path('harvests/', views.farm_harvests, name='farm_harvests_root'),        # alias for compatibility
 ]

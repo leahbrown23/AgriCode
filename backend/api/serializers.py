@@ -118,6 +118,18 @@ class PlotSerializer(serializers.ModelSerializer):
         model = Plot
         fields = "__all__"
         read_only_fields = ["user", "unique_plot_key"]
+    
+    def create(self, validated_data):
+        # Ensure the user is set from the request context
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        # Ensure user can't be changed during update
+        validated_data.pop('user', None)
+        return super().update(instance, validated_data)
 
 
 # -------------------------
