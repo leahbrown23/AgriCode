@@ -65,6 +65,21 @@ export default function SoilHealthScreen({
       try {
         const plotsRes = await api.get("/api/farm/plots/")
         const plotsRaw = plotsRes.data?.results || plotsRes.data || []
+        
+        // Fetch crop data separately
+        const cropsRes = await api.get("/api/farm/crops/")
+        const cropsRaw = cropsRes.data?.results || cropsRes.data || []
+        
+        // Create a map of plot_id to crop info
+        const plotToCrop = new Map()
+        cropsRaw.forEach(crop => {
+          const plotId = String(crop.plot_number || crop.plot_code)
+          const cropName = crop.crop_type || crop.name
+          if (plotId && cropName) {
+            plotToCrop.set(plotId, cropName)
+          }
+        })
+        
         const allPlotIds = plotsRaw.map(p => String(p.plot_id))
 
         // 1) derive linked plots & sensor meta from sim
@@ -115,7 +130,7 @@ export default function SoilHealthScreen({
             const pid = String(p.plot_id)
             const m = meta.get(pid) || {}
             const sensorId = m.sensorId || "—"
-            const cropVar = m.cropVariety || cropVarietyFromPlot(p) || "—"
+            const cropVar = plotToCrop.get(pid) || "—"
             return {
               value: pid,
               label: `${sensorId} : ${pid} : ${cropVar}`,

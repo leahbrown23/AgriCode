@@ -390,13 +390,14 @@ def farm_crops(request):
             rows = []
             for c in qs:
                 rows.append({
-                    'id': c.id,
-                    'plot_id': c.plot.id if c.plot else None,
-                    'plot_code': c.plot.plot_id if c.plot else c.plot_number,
-                    'crop_type': c.crop_type,
-                    'crop_variety': c.crop_variety,
-                    'status': c.status,
-                })
+        "id": c.id,
+        "plot_id": c.plot.id if c.plot else None,
+        "plot_code": c.plot.plot_id if c.plot else None,
+        "plot_number": c.plot_number,  # ✅ Always include plot_number
+        "crop_type": c.crop_type,
+        "crop_variety": c.crop_variety,
+        "status": c.status,
+    })
             return Response(rows)
 
         # -------- POST (create) --------
