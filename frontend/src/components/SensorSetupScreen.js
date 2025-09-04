@@ -12,6 +12,7 @@ export default function SensorSetupScreen({ onBackClick }) {
   const [showWizard, setShowWizard] = useState(false)
   const [loading, setLoading] = useState(true)
   const [removingDeviceId, setRemovingDeviceId] = useState(null)
+  const [refreshingDevices, setRefreshingDevices] = useState(false) // New state for post-connection loading
 
   // Load plots for wizard
   useEffect(() => {
@@ -38,13 +39,20 @@ export default function SensorSetupScreen({ onBackClick }) {
     })();
   }, []);
 
-  const refreshDevices = async () => {
+  const refreshDevices = async (showLoadingSpinner = false) => {
     try {
+      if (showLoadingSpinner) {
+        setRefreshingDevices(true)
+      }
       const r = await api.get("/api/sim/status/")
       setDevices(r.data || [])
     } catch (e) {
       console.error("Failed to load sensor devices:", e)
       setDevices([])
+    } finally {
+      if (showLoadingSpinner) {
+        setRefreshingDevices(false)
+      }
     }
   }
 
@@ -92,6 +100,12 @@ export default function SensorSetupScreen({ onBackClick }) {
     }
   }
 
+  const handleWizardFinished = () => {
+    setShowWizard(false)
+    // Show loading spinner while refreshing devices after connection
+    refreshDevices(true)
+  }
+
   if (loading) return <LoadingSpinner />
 
   return (
@@ -130,7 +144,17 @@ export default function SensorSetupScreen({ onBackClick }) {
             </button>
           </div>
 
-          {devices.length === 0 ? (
+          {/* Loading spinner for post-connection refresh */}
+          {refreshingDevices && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-center space-x-3">
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-blue-700 font-medium">Loading connected sensors...</span>
+              </div>
+            </div>
+          )}
+
+          {devices.length === 0 && !refreshingDevices ? (
             <div className="text-center py-8">
               <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4">
                 <svg className="w-8 h-8 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,7 +171,7 @@ export default function SensorSetupScreen({ onBackClick }) {
                 Get Started
               </button>
             </div>
-          ) : (
+          ) : devices.length > 0 ? (
             <>
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-gray-500">
@@ -245,7 +269,7 @@ export default function SensorSetupScreen({ onBackClick }) {
                 ))}
               </ul>
             </>
-          )}
+          ) : null}
         </div>
 
        
@@ -261,7 +285,7 @@ export default function SensorSetupScreen({ onBackClick }) {
         <ConnectSensorWizard
           plotOptions={plotOptions}
           onClose={() => setShowWizard(false)}
-          onFinished={() => { setShowWizard(false); refreshDevices(); }}
+          onFinished={handleWizardFinished}
         />
       </div>
     </div>
