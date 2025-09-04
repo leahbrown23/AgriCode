@@ -16,12 +16,14 @@ import {
   Zap,
   Activity,
   Info,
+  Settings,
+  Save,
 } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
-const DESIRED = {
+const DEFAULT_DESIRED = {
   pH_level: [6.0, 7.5],
   N: [30, 70],
   P: [20, 50],
@@ -73,7 +75,16 @@ export default function InsightsScreen({
   const [soilData, setSoilData] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [customRanges, setCustomRanges] = useState(() => {
+    const saved = localStorage.getItem("customSoilRanges")
+    return saved ? JSON.parse(saved) : DEFAULT_DESIRED
+  })
+  const [showCustomSettings, setShowCustomSettings] = useState(false)
+  const [tempRanges, setTempRanges] = useState(customRanges)
   const dropdownRef = useRef(null)
+
+  // Use custom ranges if set, otherwise default
+  const DESIRED = customRanges
 
   /* Fetch plots with sensors - same logic as SoilHealthScreen */
   useEffect(() => {
@@ -314,27 +325,27 @@ export default function InsightsScreen({
     switch (metric) {
       case "pH_level":
         if (status.status === "optimal") return "Maintain current pH through regular testing."
-        if (val < 6) return "Add lime to raise pH and improve nutrient uptake."
+        if (val < DESIRED.pH_level[0]) return "Add lime to raise pH and improve nutrient uptake."
         return "Add sulfur or organic matter to lower pH."
       
       case "N":
         if (status.status === "optimal") return "Continue current nitrogen management."
-        if (val < 30) return "Apply nitrogen fertilizer or compost."
+        if (val < DESIRED.N[0]) return "Apply nitrogen fertilizer or compost."
         return "Reduce nitrogen input to prevent leaching."
       
       case "P":
         if (status.status === "optimal") return "Phosphorus levels are well managed."
-        if (val < 20) return "Apply phosphorus fertilizer or bone meal."
+        if (val < DESIRED.P[0]) return "Apply phosphorus fertilizer or bone meal."
         return "Reduce phosphorus to prevent runoff."
       
       case "K":
         if (status.status === "optimal") return "Potassium levels support healthy growth."
-        if (val < 150) return "Apply potassium fertilizer or wood ash."
+        if (val < DESIRED.K[0]) return "Apply potassium fertilizer or wood ash."
         return "Monitor for nutrient imbalances."
       
       case "moisture_level":
         if (status.status === "optimal") return "Soil moisture is well balanced."
-        if (val < 20) return "Increase irrigation frequency."
+        if (val < DESIRED.moisture_level[0]) return "Increase irrigation frequency."
         return "Improve drainage to prevent waterlogging."
       
       default:
@@ -379,6 +390,25 @@ export default function InsightsScreen({
       }
     })
     return worst.key ? worst : null
+  }
+
+  function handleCustomRangeChange(metric, index, value) {
+    const newRanges = { ...tempRanges }
+    newRanges[metric][index] = parseFloat(value) || 0
+    setTempRanges(newRanges)
+  }
+
+  function saveCustomRanges() {
+    setCustomRanges(tempRanges)
+    localStorage.setItem("customSoilRanges", JSON.stringify(tempRanges))
+    setShowCustomSettings(false)
+  }
+
+  function resetToDefaults() {
+    setTempRanges(DEFAULT_DESIRED)
+    setCustomRanges(DEFAULT_DESIRED)
+    localStorage.setItem("customSoilRanges", JSON.stringify(DEFAULT_DESIRED))
+    setShowCustomSettings(false)
   }
 
   const selectedPlotInfo = plotOptions.find(opt => opt.value === selectedPlot)
@@ -446,7 +476,7 @@ export default function InsightsScreen({
           </div>
         ) : soilData && selectedPlotInfo ? (
           <>
-            {/* Overall Health Summary */}
+            {/* Overall Health Summary with Metrics Status */}
             <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-xl shadow-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Overall Soil Health</h2>
@@ -455,10 +485,10 @@ export default function InsightsScreen({
                   <div className="text-sm text-gray-600 capitalize">{overallHealth?.status || "Unknown"}</div>
                 </div>
               </div>
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-gray-700 mb-4">
                 <strong>Crop:</strong> {selectedPlotInfo.crop}
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
                 <div
                   className={`h-3 rounded-full transition-all duration-500 ${
                     overallHealth?.score >= 80 ? "bg-green-500" :
@@ -468,7 +498,53 @@ export default function InsightsScreen({
                   style={{ width: `${overallHealth?.score || 0}%` }}
                 />
               </div>
+              
+              {/* Metrics Status List */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-gray-800 text-sm mb-2">Metrics Status:</h3>
+                {Object.entries(DESIRED).map(([metric, range]) => {
+                  const val = soilData[metric]
+                  const info = METRIC_INFO[metric]
+                  const status = getStatus(metric, val)
+                  const IconComponent = info.icon
+
+                  return (
+                    <div key={metric} className="flex items-center justify-between py-1">
+                      <div className="flex items-center">
+                        <IconComponent className="w-4 h-4 text-green-600 mr-2" />
+                        <span className="text-sm font-medium text-gray-700">{info.name}</span>
+                      </div>
+                      <div className={`text-sm font-semibold flex items-center ${
+                        status.color === "green" ? "text-green-600" :
+                        status.color === "yellow" ? "text-yellow-600" :
+                        status.color === "red" ? "text-red-600" : "text-gray-500"
+                      }`}>
+                        {status.color === "green" && <CheckCircle className="w-3 h-3 mr-1" />}
+                        {status.color === "red" && <XCircle className="w-3 h-3 mr-1" />}
+                        {status.color === "yellow" && <AlertTriangle className="w-3 h-3 mr-1" />}
+                        {status.text}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
+
+            {/* Priority Action */}
+            {criticalMetric && (
+              <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl shadow-lg p-4">
+                <div className="flex items-center text-white">
+                  <AlertTriangle className="w-5 h-5 mr-3 flex-shrink-0" />
+                  <div>
+                    <div className="font-bold text-sm">PRIORITY ACTION REQUIRED</div>
+                    <div className="text-sm opacity-90">
+                      <strong>{METRIC_INFO[criticalMetric.key]?.name}</strong> needs immediate attention. 
+                      {getRecommendation(criticalMetric.key, soilData[criticalMetric.key])}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Soil Metrics Analysis */}
             <div className="bg-white rounded-xl shadow-lg p-5">
@@ -561,21 +637,81 @@ export default function InsightsScreen({
               </div>
             </div>
 
-            {/* Priority Action */}
-            {criticalMetric && (
-              <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl shadow-lg p-4">
-                <div className="flex items-center text-white">
-                  <AlertTriangle className="w-5 h-5 mr-3 flex-shrink-0" />
-                  <div>
-                    <div className="font-bold text-sm">PRIORITY ACTION REQUIRED</div>
-                    <div className="text-sm opacity-90">
-                      <strong>{METRIC_INFO[criticalMetric.key]?.name}</strong> needs immediate attention. 
-                      {getRecommendation(criticalMetric.key, soilData[criticalMetric.key])}
+            {/* Custom Settings Section */}
+            <div className="bg-white rounded-xl shadow-lg p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-800 flex items-center">
+                  <Settings className="w-5 h-5 mr-2 text-green-600" />
+                  Custom Optimal Ranges
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowCustomSettings(!showCustomSettings)
+                    setTempRanges(customRanges)
+                  }}
+                  className="text-green-600 hover:text-green-700 font-medium text-sm"
+                >
+                  {showCustomSettings ? "Hide" : "Customize"}
+                </button>
+              </div>
+
+              {showCustomSettings && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Adjust the optimal ranges for your specific crop and soil conditions. Changes will update all insights and recommendations.
+                  </p>
+                  
+                  {Object.entries(METRIC_INFO).map(([metric, info]) => (
+                    <div key={metric} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center mb-2">
+                        <info.icon className="w-4 h-4 text-green-600 mr-2" />
+                        <span className="font-medium text-gray-800">{info.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-1">
+                          <label className="text-xs text-gray-500">Min</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={tempRanges[metric][0]}
+                            onChange={(e) => handleCustomRangeChange(metric, 0, e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <span className="text-gray-400">-</span>
+                        <div className="flex-1">
+                          <label className="text-xs text-gray-500">Max</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={tempRanges[metric][1]}
+                            onChange={(e) => handleCustomRangeChange(metric, 1, e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <span className="text-xs text-gray-500 min-w-8">{info.unit}</span>
+                      </div>
                     </div>
+                  ))}
+
+                  <div className="flex space-x-3 pt-3 border-t">
+                    <button
+                      onClick={saveCustomRanges}
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg font-medium flex items-center justify-center hover:bg-green-700 transition-colors"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={resetToDefaults}
+                      className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                    >
+                      Reset to Defaults
+                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Additional Insights */}
             <div className="bg-white rounded-xl shadow-lg p-5">

@@ -1,5 +1,6 @@
 # Ignore Python/Django files
 backend/venv/
+backend/.venv/
 backend/__pycache__/
 backend/db.sqlite3
 backend/*.pyc
@@ -16,6 +17,7 @@ frontend/.env
 
 # General ignore patterns
 venv/
+.venv/
 node_modules/
 .env
 __pycache__/
