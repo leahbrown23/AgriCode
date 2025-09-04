@@ -1,8 +1,9 @@
 "use client"
 
-import { ArrowLeft, Filter, Star, StarOff, Plus, Send, X } from "lucide-react"
+import { ArrowLeft, Filter, Plus, Send, Star, StarOff, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
+import { ErrorAlertModal, SuccessAlertModal } from "./Alert"
 import LoadingSpinner from "./LoadingSpinner"
 
 export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
@@ -19,6 +20,11 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [favoriteThreadIds, setFavoriteThreadIds] = useState([])
   const [user, setUser] = useState(null)
   const [favoriteRecords, setFavoriteRecords] = useState({})
+
+const [showErrorModal, setShowErrorModal] = useState(false)
+const [showSuccessModal, setShowSuccessModal] = useState(false)
+const [alertMessage, setAlertMessage] = useState("")
+
 
   const filterOptions = [
     { id: "all", label: "All Threads" },
@@ -162,7 +168,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
 
   const handleCreateThread = async () => {
     if (!newThreadTitle.trim() || !newThreadMessage.trim() || !newThreadTopic) {
-      alert("Please fill in all fields.")
+      setAlertMessage("Please fill in all fields.")
+      setShowErrorModal(true)
       return
     }
 
@@ -172,7 +179,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
         title: newThreadTitle,
         message: newThreadMessage,
       })
-      alert("Thread created successfully!")
+      setAlertMessage("Thread created successfully!")
       setShowCreateForm(false)
       setNewThreadTitle("")
       setNewThreadMessage("")
@@ -183,7 +190,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
       }
     } catch (err) {
       console.error("Error creating thread:", err)
-      alert("Failed to create thread.")
+      setAlertMessage("Failed to create thread. Please try again later.")
+      setShowErrorModal(true)
     }
   }
 
@@ -373,6 +381,17 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
           </div>
         </div>
       </div>
+      <ErrorAlertModal
+      open={showErrorModal}
+      message={alertMessage}
+      onClose={() => setShowErrorModal(false)}
+    />
+
+    <SuccessAlertModal
+      open={showSuccessModal}
+      message={alertMessage}
+      onClose={() => setShowSuccessModal(false)}
+    />
     </div>
   )
 }
