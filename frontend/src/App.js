@@ -47,15 +47,29 @@ function App() {
         return true
       }
 
-      // Fallback: if we have an access token, consider the user "signed in" for now
-      const access = localStorage.getItem("access")
-      if (access) {
-        // If api exposes an axios client, set the header
-        if (api?.client?.defaults?.headers?.common) {
-          api.client.defaults.headers.common["Authorization"] = `Bearer ${access}`
+      // Check if we have tokens
+      const access = localStorage.getItem("accessToken")
+      const refresh = localStorage.getItem("refreshToken")
+      
+      if (access && refresh) {
+        // Test if the token is actually valid by making a simple API call
+        try {
+          // Set the header first
+          if (api?.defaults?.headers?.common) {
+            api.defaults.headers.common["Authorization"] = `Bearer ${access}`
+          }
+          
+          // Make a test API call to verify the token works
+          await api.get("/api/profile/") // or any protected endpoint
+          return true
+        } catch (error) {
+          // Token is invalid, clear storage
+          localStorage.removeItem("accessToken")
+          localStorage.removeItem("refreshToken")
+          return false
         }
-        return true
       }
+      
       return false
     } catch {
       return false
@@ -65,8 +79,9 @@ function App() {
   // ----- Auth bootstrap (restore/refresh tokens and set header) -----
   useEffect(() => {
     ;(async () => {
-      const ok = await tryBootstrapAuth()
-      setCurrentScreen(ok ? "dashboard" : "login")
+      await tryBootstrapAuth()
+      // Always start at login screen regardless of token status
+      setCurrentScreen("login")
     })()
   }, [])
 
@@ -110,8 +125,8 @@ function App() {
     if (api && typeof api.logout === "function") {
       api.logout()
     } else {
-      localStorage.removeItem("access")
-      localStorage.removeItem("refresh")
+      localStorage.removeItem("accessToken") // Fixed: changed from "access"
+      localStorage.removeItem("refreshToken") // Fixed: changed from "refresh"
     }
     localStorage.removeItem("selectedSoilPlot")
     setCurrentScreen("loginForm")

@@ -117,10 +117,10 @@ CHANNEL_LAYERS = {
     }
 }
 
-# ---- SimpleJWT config (refresh keeps you signed in) ----
+# ---- SimpleJWT config (UPDATED with longer token lifetime) ----
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),  # “remember me” window
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),  # Increased from 15 minutes
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),  # "remember me" window
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
