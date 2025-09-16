@@ -8,6 +8,7 @@ import LoadingSpinner from "./LoadingSpinner"
 export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileClick, onMenuClick }) {
   const [selectedPlotId, setSelectedPlotId] = useState("")
   const [cropType, setCropType] = useState("")
+  const [soilType, setSoilType] = useState("")
   const [cropVariety, setCropVariety] = useState("")
   const [user, setUser] = useState(null)
   const [userCrops, setUserCrops] = useState([])
@@ -28,19 +29,21 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   const [harvestLoading, setHarvestLoading] = useState(false)
 
   const cropTypes = [
-    "Barley",
-    "Cabbage",
-    "Carrot",
-    "Groundnut",
     "Maize",
-    "Onion",
     "Potato",
     "Rice",
-    "Spinach",
-    "Soybean",
+    "Sugarcane",
     "Tomato",
     "Wheat",
-    "Other",
+  ]
+
+  const soil_type = [
+    "Clay",
+    "Loamy",
+    "Peaty",
+    "Saline",
+    "Sandy",
+    "Silt",
   ]
 
   useEffect(() => {
@@ -152,11 +155,12 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     }
     try {
       await api.post("/api/farm/crops/", {
-        plot_number: plotId,
-        plot: selectedPlotId,
-        crop_type: cropType,
-        crop_variety: cropVariety,
-      })
+  plot_number: plotId,
+  plot: selectedPlotId,
+  crop_type: cropType,
+  crop_variety: cropVariety,
+  soil_type: soilType, 
+})
       setSuccessMessage("Crop added successfully!")
       setSelectedPlotId("")
       setCropType("")
@@ -434,6 +438,26 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
                 </select>
               </div>
             </div>
+
+            <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">Soil Type *</label>
+  <div className="relative">
+    <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <select
+      value={soilType}
+      onChange={(e) => setSoilType(e.target.value)}
+      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
+    >
+      <option value="" disabled>Select Soil Type</option>
+      {soil_type.map((type) => (
+        <option key={type} value={type}>
+          {type}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
+
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Crop Variety *</label>
