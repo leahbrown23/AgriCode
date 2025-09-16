@@ -310,8 +310,27 @@ export default function SoilHealthScreen({
     return () => window.removeEventListener("mousedown", handleClick)
   }, [dropdownOpen])
 
-  const score = soilData ? calculateSoilScore(soilData) : 0
-  const classification = getClassification(score)
+  // Get score and classification from localStorage (set by InsightsScreen) or calculate fallback
+  function getScoreAndClassification() {
+    const storedScore = localStorage.getItem('soilHealthScore')
+    const storedClassification = localStorage.getItem('soilHealthClassification')
+    
+    if (storedScore && storedClassification && soilData) {
+      return {
+        score: parseInt(storedScore),
+        classification: storedClassification
+      }
+    }
+    
+    // Fallback calculation if no stored values
+    const calculatedScore = soilData ? calculateSoilScore(soilData) : 0
+    return {
+      score: calculatedScore,
+      classification: getClassification(calculatedScore)
+    }
+  }
+
+  const { score, classification } = getScoreAndClassification()
   const selectedLabel = plotOptions.find(o => String(o.value) === String(selectedPlot))?.label
 
   /* ---------------- render ---------------- */
@@ -433,14 +452,14 @@ export default function SoilHealthScreen({
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
                     <div className="bg-white rounded-xl shadow-lg max-w-sm p-5 text-sm text-gray-800">
                       <h2 className="text-lg font-bold mb-3">How Soil Score is Calculated</h2>
-                      <p className="mb-2">The Soil Health Score (SHS) is a weighted average of key soil nutrients and pH:</p>
+                      <p className="mb-2">The Soil Health Score calculates percentage distance from optimal ranges:</p>
                       <ul className="list-disc list-inside mb-2">
-                        <li>pH level: 20%</li>
-                        <li>Nitrogen (N): 35%</li>
-                        <li>Phosphorus (P): 25%</li>
-                        <li>Potassium (K): 20%</li>
+                        <li>pH Level: 6.0-7.5 (Weight: 15%)</li>
+                        <li>Nitrogen: 30-70 ppm (Weight: 40%)</li>
+                        <li>Phosphorus: 20-50 ppm (Weight: 25%)</li>
+                        <li>Potassium: 150-300 ppm (Weight: 20%)</li>
                       </ul>
-                      <p className="mb-2">Formula: <code>(pH × 0.2) + (N × 0.35) + (P × 0.25) + (K × 0.2)</code></p>
+                      <p className="mb-2">Score reflects how close your soil is to optimal conditions (100% = perfect). Calculated using crop-specific ranges when available.</p>
                       <div className="text-right mt-6">
                         <button onClick={() => setShowExplanation(false)} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
                           Close
@@ -461,12 +480,12 @@ export default function SoilHealthScreen({
                 </div>
               </div>
 
+              {/* Updated metric cards - removed moisture */}
               <div className="grid grid-cols-2 gap-3">
                 <MetricCard color="yellow" label="pH Level" value={fmt(soilData.pH_level)} unit="pH" />
-                <MetricCard color="blue" label="Moisture" value={fmt(soilData.moisture_level)} unit="%" />
                 <MetricCard color="green" label="Nitrogen" value={fmt(soilData.N)} unit="ppm" Icon={Leaf} />
                 <MetricCard color="purple" label="Phosphorus" value={fmt(soilData.P)} unit="ppm" Icon={Zap} />
-                <MetricCard color="orange" label="Potassium" value={fmt(soilData.K)} unit="ppm" Icon={Activity} full />
+                <MetricCard color="orange" label="Potassium" value={fmt(soilData.K)} unit="ppm" Icon={Activity} />
               </div>
             </div>
 
@@ -480,7 +499,7 @@ export default function SoilHealthScreen({
           </>
         ) : (
           <>
-            {/* Empty states */}
+            {/* Empty states - removed moisture */}
             <div className="bg-white rounded-xl shadow-lg p-5">
               <div className="text-center mb-6">
                 <div className="flex items-center justify-center mb-2">
@@ -492,8 +511,8 @@ export default function SoilHealthScreen({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {["pH Level","Moisture","Nitrogen","Phosphorus","Potassium"].map((x, i) => (
-                  <div key={x} className={`bg-gray-50 rounded-lg p-4 text-center ${i===4?"col-span-2":""}`}>
+                {["pH Level","Nitrogen","Phosphorus","Potassium"].map((x, i) => (
+                  <div key={x} className="bg-gray-50 rounded-lg p-4 text-center">
                     <div className="flex items-center justify-center mb-2">
                       <div className="w-4 h-4 bg-gray-400 rounded-full mr-1" />
                       <span className="text-xs font-medium text-gray-400">{x}</span>
@@ -581,7 +600,7 @@ function normalizeReading(item = {}) {
     N: safeNum(n),
     P: safeNum(p),
     K: safeNum(k),
-    moisture_level: safeNum(moisture),
+    moisture_level: safeNum(moisture), // Keep for backward compatibility with existing data
     plot_id: item.plot_id ?? item.plot_number ?? item.plot ?? null,
     sensor_id: item.sensor_id ?? item.sensor ?? null,
   }
@@ -589,13 +608,13 @@ function normalizeReading(item = {}) {
 
 function isCompleteReading(r) {
   if (!r) return false
+  // Updated to not require moisture_level for complete reading
   return (
     r.timestamp &&
     r.pH_level != null &&
     r.N != null &&
     r.P != null &&
-    r.K != null &&
-    r.moisture_level != null
+    r.K != null
   )
 }
 
@@ -610,15 +629,81 @@ function safeNum(v) {
   return Number.isFinite(n) ? n : null
 }
 
+// Fallback soil score calculation (same as before but with improved weightings)
 function calculateSoilScore(d) {
-  const pH = safeNum(d.pH_level) || 0
-  const N = safeNum(d.N) || 0
-  const P = safeNum(d.P) || 0
-  const K = safeNum(d.K) || 0
-  return Math.round(pH * 0.2 + N * 0.35 + P * 0.25 + K * 0.2)
+  // Optimal ranges for each metric
+  const OPTIMAL_RANGES = {
+    pH_level: [6.0, 7.5],  // Weight: 15%
+    N: [30, 70],           // Weight: 40%
+    P: [20, 50],           // Weight: 25%
+    K: [150, 300],         // Weight: 20%
+  }
+
+  const WEIGHTS = {
+    pH_level: 0.15,
+    N: 0.40,
+    P: 0.25,
+    K: 0.20,
+  }
+
+  function getMetricHealthPercentage(value, range) {
+    if (value == null || !range) return 50 // Give neutral score instead of 0
+    const [min, max] = range
+    const mid = (min + max) / 2
+    
+    if (value >= min && value <= max) {
+      // Inside optimal range - much more forgiving
+      const distanceFromCenter = Math.abs(value - mid)
+      const maxDistanceFromCenter = (max - min) / 2
+      const centerScore = 100 - (distanceFromCenter / maxDistanceFromCenter) * 10 // Reduced penalty from 20% to 10%
+      return Math.max(85, centerScore) // Increased minimum from 80% to 85%
+    } else if (value < min) {
+      // Below optimal range - less harsh penalty
+      const deficit = min - value
+      const penaltyPercentage = (deficit / min) * 100
+      return Math.max(20, 100 - penaltyPercentage * 1.2) // Reduced penalty from 2x to 1.2x
+    } else {
+      // Above optimal range - less harsh penalty
+      const excess = value - max
+      const penaltyPercentage = (excess / max) * 100
+      return Math.max(30, 100 - penaltyPercentage * 1.0) // Reduced penalty from 1.5x to 1.0x
+    }
+  }
+
+  const pH = safeNum(d.pH_level)
+  const N = safeNum(d.N)
+  const P = safeNum(d.P)
+  const K = safeNum(d.K)
+
+  const pHHealth = getMetricHealthPercentage(pH, OPTIMAL_RANGES.pH_level)
+  const nHealth = getMetricHealthPercentage(N, OPTIMAL_RANGES.N)
+  const pHealth = getMetricHealthPercentage(P, OPTIMAL_RANGES.P)
+  const kHealth = getMetricHealthPercentage(K, OPTIMAL_RANGES.K)
+
+  // Weighted average
+  const weightedScore = (pHHealth * WEIGHTS.pH_level) + 
+                       (nHealth * WEIGHTS.N) + 
+                       (pHealth * WEIGHTS.P) + 
+                       (kHealth * WEIGHTS.K)
+  
+  return Math.round(weightedScore)
 }
-function getClassification(s) { if (s >= 80) return "Healthy"; if (s >= 60) return "Moderate"; return "Poor" }
-function getScoreColor(s) { if (s < 60) return "rgb(229,57,53)"; if (s < 80) return "rgb(251,192,45)"; return "rgb(67,160,71)" }
+
+function getClassification(s) { 
+  if (s >= 85) return "Excellent"
+  if (s >= 70) return "Good"
+  if (s >= 55) return "Moderate"
+  if (s >= 40) return "Fair"
+  return "Poor"
+}
+
+function getScoreColor(s) { 
+  if (s >= 85) return "rgb(67,160,71)"   // Green
+  if (s >= 70) return "rgb(33,150,243)"  // Blue  
+  if (s >= 55) return "rgb(251,192,45)"  // Yellow
+  if (s >= 40) return "rgb(255,152,0)"   // Orange
+  return "rgb(229,57,53)"                // Red
+}
 
 function MetricCard({ color, label, value, unit, Icon, full }) {
   const colors = {

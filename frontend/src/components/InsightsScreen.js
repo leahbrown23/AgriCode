@@ -12,7 +12,6 @@ import {
   XCircle,
   TrendingUp,
   TrendingDown,
-  Droplets,
   Zap,
   Activity,
   Info,
@@ -23,12 +22,21 @@ import { useEffect, useState, useRef } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 
+// Crop-specific optimal ranges
+const CROP_OPTIMAL_RANGES = {
+  wheat: { N: [80, 200], P: [30, 80], K: [40, 120], pH_level: [6.0, 6.8] },
+  tomato: { N: [100, 250], P: [50, 120], K: [80, 250], pH_level: [5.5, 6.8] },
+  sugarcane: { N: [90, 200], P: [50, 100], K: [40, 150], pH_level: [5.0, 8.0] },
+  maize: { N: [60, 200], P: [20, 100], K: [20, 150], pH_level: [5.5, 7.0] },
+  potato: { N: [100, 300], P: [50, 120], K: [150, 250], pH_level: [5.5, 6.5] },
+  rice: { N: [100, 200], P: [20, 70], K: [65, 120], pH_level: [5.5, 6.5] },
+}
+
 const DEFAULT_DESIRED = {
   pH_level: [6.0, 7.5],
   N: [30, 70],
   P: [20, 50],
   K: [150, 300],
-  moisture_level: [20, 40],
 }
 
 const METRIC_INFO = {
@@ -56,12 +64,6 @@ const METRIC_INFO = {
     icon: TrendingUp,
     description: "Improves disease resistance and water regulation",
   },
-  moisture_level: {
-    name: "Soil Moisture",
-    unit: "%",
-    icon: Droplets,
-    description: "Water content available to plants",
-  },
 }
 
 export default function InsightsScreen({
@@ -83,8 +85,32 @@ export default function InsightsScreen({
   const [tempRanges, setTempRanges] = useState(customRanges)
   const dropdownRef = useRef(null)
 
-  // Use custom ranges if set, otherwise default
-  const DESIRED = customRanges
+  // Get optimal ranges based on selected crop, with fallback to custom ranges
+  function getOptimalRanges() {
+    const selectedPlotInfo = plotOptions.find(opt => opt.value === selectedPlot)
+    if (!selectedPlotInfo) return customRanges
+
+    const cropType = selectedPlotInfo.crop.toLowerCase()
+    const cropRanges = CROP_OPTIMAL_RANGES[cropType]
+    
+    // If we have crop-specific ranges and no custom ranges saved, use crop ranges
+    if (cropRanges && !localStorage.getItem("customSoilRanges")) {
+      return cropRanges
+    }
+    
+    // Otherwise use custom ranges (which may have been set by user)
+    return customRanges
+  }
+
+  const DESIRED = getOptimalRanges()
+
+  // Helper function to classify nutrient values
+  function classify(value, minVal, maxVal) {
+    if (value == null || isNaN(value)) return "unknown"
+    if (value < minVal) return "deficient"
+    if (value > maxVal) return "excess"
+    return "optimal"
+  }
 
   /* Fetch plots with sensors - same logic as SoilHealthScreen */
   useEffect(() => {
@@ -185,6 +211,21 @@ export default function InsightsScreen({
     })()
   }, [])
 
+  // Update custom ranges when plot selection changes (if no custom ranges are saved)
+  useEffect(() => {
+    if (!localStorage.getItem("customSoilRanges") && selectedPlot) {
+      const selectedPlotInfo = plotOptions.find(opt => opt.value === selectedPlot)
+      if (selectedPlotInfo) {
+        const cropType = selectedPlotInfo.crop.toLowerCase()
+        const cropRanges = CROP_OPTIMAL_RANGES[cropType]
+        if (cropRanges) {
+          setCustomRanges(cropRanges)
+          setTempRanges(cropRanges)
+        }
+      }
+    }
+  }, [selectedPlot, plotOptions])
+
   // tolerant parser for /api/sim/status/ that returns both set & meta
   async function linkedPlotsFromSim() {
     try {
@@ -277,7 +318,7 @@ export default function InsightsScreen({
       N: safeNum(item.N ?? item.n),
       P: safeNum(item.P ?? item.p),
       K: safeNum(item.K ?? item.k),
-      moisture_level: safeNum(item.moisture_level ?? item.moisture),
+      // Removed moisture_level
     }
   }
 
@@ -296,16 +337,21 @@ export default function InsightsScreen({
     const range = DESIRED[metric]
     if (!range) return { status: "unknown", color: "gray", text: "Unknown" }
     
-    if (withinRange(val, range)) {
-      return { status: "optimal", color: "green", text: "Optimal" }
-    } else if (val < range[0]) {
-      const deficit = ((range[0] - val) / range[0]) * 100
-      if (deficit > 30) return { status: "critical", color: "red", text: "Critical Low" }
-      return { status: "low", color: "yellow", text: "Below Optimal" }
-    } else {
-      const excess = ((val - range[1]) / range[1]) * 100
-      if (excess > 30) return { status: "critical", color: "red", text: "Critical High" }
-      return { status: "high", color: "yellow", text: "Above Optimal" }
+    const classification = classify(val, range[0], range[1])
+    
+    switch (classification) {
+      case "optimal":
+        return { status: "optimal", color: "green", text: "Optimal" }
+      case "deficient":
+        const deficit = ((range[0] - val) / range[0]) * 100
+        if (deficit > 30) return { status: "critical", color: "red", text: "Critical Low" }
+        return { status: "low", color: "yellow", text: "Below Optimal" }
+      case "excess":
+        const excess = ((val - range[1]) / range[1]) * 100
+        if (excess > 30) return { status: "critical", color: "red", text: "Critical High" }
+        return { status: "high", color: "yellow", text: "Above Optimal" }
+      default:
+        return { status: "unknown", color: "gray", text: "Unknown" }
     }
   }
 
@@ -343,36 +389,97 @@ export default function InsightsScreen({
         if (val < DESIRED.K[0]) return "Apply potassium fertilizer or wood ash."
         return "Monitor for nutrient imbalances."
       
-      case "moisture_level":
-        if (status.status === "optimal") return "Soil moisture is well balanced."
-        if (val < DESIRED.moisture_level[0]) return "Increase irrigation frequency."
-        return "Improve drainage to prevent waterlogging."
-      
       default:
         return "Monitor regularly for changes."
     }
   }
 
+  // Improved soil score calculation with better weightings and more forgiving penalties
+  function calculateSoilScore(d) {
+    const OPTIMAL_RANGES = DESIRED
+
+    // More balanced weights - pH is less critical, nutrients more important
+    const WEIGHTS = {
+      pH_level: 0.15,  // Reduced from 0.20
+      N: 0.40,         // Increased from 0.35 (most important for growth)
+      P: 0.25,         // Keep same
+      K: 0.20,         // Keep same
+    }
+
+    function getMetricHealthPercentage(value, range) {
+      if (value == null || !range) return 50 // Give neutral score instead of 0
+      const [min, max] = range
+      const mid = (min + max) / 2
+      
+      if (value >= min && value <= max) {
+        // Inside optimal range - much more forgiving
+        const distanceFromCenter = Math.abs(value - mid)
+        const maxDistanceFromCenter = (max - min) / 2
+        const centerScore = 100 - (distanceFromCenter / maxDistanceFromCenter) * 10 // Reduced penalty from 20% to 10%
+        return Math.max(85, centerScore) // Increased minimum from 80% to 85%
+      } else if (value < min) {
+        // Below optimal range - less harsh penalty
+        const deficit = min - value
+        const penaltyPercentage = (deficit / min) * 100
+        return Math.max(20, 100 - penaltyPercentage * 1.2) // Reduced penalty from 2x to 1.2x
+      } else {
+        // Above optimal range - less harsh penalty
+        const excess = value - max
+        const penaltyPercentage = (excess / max) * 100
+        return Math.max(30, 100 - penaltyPercentage * 1.0) // Reduced penalty from 1.5x to 1.0x
+      }
+    }
+
+    const pH = safeNum(d.pH_level)
+    const N = safeNum(d.N)
+    const P = safeNum(d.P)
+    const K = safeNum(d.K)
+
+    const pHHealth = getMetricHealthPercentage(pH, OPTIMAL_RANGES.pH_level)
+    const nHealth = getMetricHealthPercentage(N, OPTIMAL_RANGES.N)
+    const pHealth = getMetricHealthPercentage(P, OPTIMAL_RANGES.P)
+    const kHealth = getMetricHealthPercentage(K, OPTIMAL_RANGES.K)
+
+    // Store individual scores in localStorage for SoilHealthScreen to use
+    const individualScores = {
+      pH_level: Math.round(pHHealth),
+      N: Math.round(nHealth),
+      P: Math.round(pHealth),
+      K: Math.round(kHealth)
+    }
+    localStorage.setItem('soilHealthScores', JSON.stringify(individualScores))
+
+    // Weighted average
+    const weightedScore = (pHHealth * WEIGHTS.pH_level) + 
+                         (nHealth * WEIGHTS.N) + 
+                         (pHealth * WEIGHTS.P) + 
+                         (kHealth * WEIGHTS.K)
+    
+    const finalScore = Math.round(weightedScore)
+    
+    // Store the final score and classification for SoilHealthScreen
+    let classification = "Poor"
+    if (finalScore >= 85) classification = "Excellent"
+    else if (finalScore >= 70) classification = "Good" 
+    else if (finalScore >= 55) classification = "Moderate"
+    else if (finalScore >= 40) classification = "Fair"
+    
+    localStorage.setItem('soilHealthScore', finalScore.toString())
+    localStorage.setItem('soilHealthClassification', classification)
+    
+    return finalScore
+  }
+
   function getOverallHealth() {
     if (!soilData) return { score: 0, status: "unknown" }
     
-    let totalMetrics = 0
-    let healthyMetrics = 0
+    const score = calculateSoilScore(soilData)
     
-    Object.entries(DESIRED).forEach(([metric, range]) => {
-      const val = soilData[metric]
-      if (val != null) {
-        totalMetrics++
-        if (withinRange(val, range)) healthyMetrics++
-      }
-    })
-    
-    if (totalMetrics === 0) return { score: 0, status: "unknown" }
-    
-    const score = Math.round((healthyMetrics / totalMetrics) * 100)
+    // Updated thresholds to match the stored classification
     let status = "poor"
-    if (score >= 80) status = "excellent"
-    else if (score >= 60) status = "good"
+    if (score >= 85) status = "excellent"
+    else if (score >= 70) status = "good"
+    else if (score >= 55) status = "moderate"
     else if (score >= 40) status = "fair"
     
     return { score, status }
@@ -394,6 +501,7 @@ export default function InsightsScreen({
 
   function handleCustomRangeChange(metric, index, value) {
     const newRanges = { ...tempRanges }
+    if (!newRanges[metric]) newRanges[metric] = [0, 0]
     newRanges[metric][index] = parseFloat(value) || 0
     setTempRanges(newRanges)
   }
@@ -405,15 +513,40 @@ export default function InsightsScreen({
   }
 
   function resetToDefaults() {
-    setTempRanges(DEFAULT_DESIRED)
-    setCustomRanges(DEFAULT_DESIRED)
-    localStorage.setItem("customSoilRanges", JSON.stringify(DEFAULT_DESIRED))
+    // Reset to crop-specific defaults if available, otherwise use DEFAULT_DESIRED
+    const selectedPlotInfo = plotOptions.find(opt => opt.value === selectedPlot)
+    let defaultRanges = DEFAULT_DESIRED
+    
+    if (selectedPlotInfo) {
+      const cropType = selectedPlotInfo.crop.toLowerCase()
+      const cropRanges = CROP_OPTIMAL_RANGES[cropType]
+      if (cropRanges) {
+        defaultRanges = cropRanges
+      }
+    }
+    
+    setTempRanges(defaultRanges)
+    setCustomRanges(defaultRanges)
+    localStorage.setItem("customSoilRanges", JSON.stringify(defaultRanges))
     setShowCustomSettings(false)
+  }
+
+  function resetToCropDefaults() {
+    const selectedPlotInfo = plotOptions.find(opt => opt.value === selectedPlot)
+    if (selectedPlotInfo) {
+      const cropType = selectedPlotInfo.crop.toLowerCase()
+      const cropRanges = CROP_OPTIMAL_RANGES[cropType]
+      if (cropRanges) {
+        setTempRanges(cropRanges)
+      }
+    }
   }
 
   const selectedPlotInfo = plotOptions.find(opt => opt.value === selectedPlot)
   const overallHealth = soilData ? getOverallHealth() : null
   const criticalMetric = soilData ? mostCriticalMetric(soilData) : null
+  const hasCustomRanges = localStorage.getItem("customSoilRanges") !== null
+  const hasCropSpecificRanges = selectedPlotInfo && CROP_OPTIMAL_RANGES[selectedPlotInfo.crop.toLowerCase()]
 
   /* Render */
   return (
@@ -487,12 +620,18 @@ export default function InsightsScreen({
               </div>
               <div className="text-sm text-gray-700 mb-4">
                 <strong>Crop:</strong> {selectedPlotInfo.crop}
+                <div className="text-xs text-gray-500 mt-1">
+                  {hasCustomRanges ? "Using custom optimal ranges" : 
+                   hasCropSpecificRanges ? `Using ${selectedPlotInfo.crop.toLowerCase()}-specific ranges` : 
+                   "Using default ranges"}
+                </div>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
                 <div
                   className={`h-3 rounded-full transition-all duration-500 ${
-                    overallHealth?.score >= 80 ? "bg-green-500" :
-                    overallHealth?.score >= 60 ? "bg-yellow-500" :
+                    overallHealth?.score >= 85 ? "bg-green-500" :
+                    overallHealth?.score >= 70 ? "bg-blue-500" :
+                    overallHealth?.score >= 55 ? "bg-yellow-500" :
                     overallHealth?.score >= 40 ? "bg-orange-500" : "bg-red-500"
                   }`}
                   style={{ width: `${overallHealth?.score || 0}%` }}
@@ -505,6 +644,10 @@ export default function InsightsScreen({
                 {Object.entries(DESIRED).map(([metric, range]) => {
                   const val = soilData[metric]
                   const info = METRIC_INFO[metric]
+                  
+                  // Skip if metric info doesn't exist
+                  if (!info) return null
+                  
                   const status = getStatus(metric, val)
                   const IconComponent = info.icon
 
@@ -526,7 +669,7 @@ export default function InsightsScreen({
                       </div>
                     </div>
                   )
-                })}
+                }).filter(Boolean)}
               </div>
             </div>
 
@@ -550,12 +693,16 @@ export default function InsightsScreen({
             <div className="bg-white rounded-xl shadow-lg p-5">
               <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <Activity className="w-5 h-5 mr-2 text-green-600" />
-                Detailed Soil Analysis
+                Detailed Soil Analysis for {selectedPlotInfo.crop}
               </h2>
               <div className="space-y-6">
                 {Object.entries(DESIRED).map(([metric, range]) => {
                   const val = soilData[metric]
                   const info = METRIC_INFO[metric]
+                  
+                  // Skip if metric info doesn't exist
+                  if (!info) return null
+                  
                   const status = getStatus(metric, val)
                   const pos = getPositionPercent(val, range)
                   const IconComponent = info.icon
@@ -633,7 +780,7 @@ export default function InsightsScreen({
                       </div>
                     </div>
                   )
-                })}
+                }).filter(Boolean)}
               </div>
             </div>
 
@@ -642,7 +789,7 @@ export default function InsightsScreen({
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-800 flex items-center">
                   <Settings className="w-5 h-5 mr-2 text-green-600" />
-                  Custom Optimal Ranges
+                  Optimal Range Settings
                 </h3>
                 <button
                   onClick={() => {
@@ -673,7 +820,7 @@ export default function InsightsScreen({
                           <input
                             type="number"
                             step="0.1"
-                            value={tempRanges[metric][0]}
+                            value={tempRanges[metric]?.[0] || 0}
                             onChange={(e) => handleCustomRangeChange(metric, 0, e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
                           />
@@ -684,7 +831,7 @@ export default function InsightsScreen({
                           <input
                             type="number"
                             step="0.1"
-                            value={tempRanges[metric][1]}
+                            value={tempRanges[metric]?.[1] || 0}
                             onChange={(e) => handleCustomRangeChange(metric, 1, e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
                           />
@@ -702,6 +849,14 @@ export default function InsightsScreen({
                       <Save className="w-4 h-4 mr-2" />
                       Save Changes
                     </button>
+                    {hasCropSpecificRanges && (
+                      <button
+                        onClick={resetToCropDefaults}
+                        className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                      >
+                        Use {selectedPlotInfo.crop} Defaults
+                      </button>
+                    )}
                     <button
                       onClick={resetToDefaults}
                       className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
@@ -723,7 +878,9 @@ export default function InsightsScreen({
                 <div className="flex items-start">
                   <div className="w-2 h-2 bg-green-500 rounded-full mr-3 mt-2 flex-shrink-0"></div>
                   <span>
-                    <strong>Best Time to Test:</strong> Early morning for most accurate moisture readings.
+                    <strong>Crop-Specific Analysis:</strong> {hasCropSpecificRanges ? 
+                      `Ranges optimized for ${selectedPlotInfo.crop.toLowerCase()} cultivation` : 
+                      "Using general soil health ranges"}.
                   </span>
                 </div>
                 <div className="flex items-start">
