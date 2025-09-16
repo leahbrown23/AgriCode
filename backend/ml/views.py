@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from backend.ml import inference  # adjust import based on your project structure
+from . import inference  # adjust import based on your project structure
 
 @api_view(['POST'])
 def recommend_crop(request):

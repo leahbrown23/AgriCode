@@ -3,19 +3,25 @@ import joblib
 import json
 import os
 
-MODEL_DIR = "backend/ml/models"
+# get the folder this file is in
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Load trained model
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 model_path = os.path.join(MODEL_DIR, "crop_rf_model.pkl")
+feature_cols_path = os.path.join(MODEL_DIR, "feature_columns.json")
+
+#load model
 clf = joblib.load(model_path)
 
 # Load crop mapping
-with open(os.path.join(MODEL_DIR, "feature_colu.json"), "r") as f:
+with open(os.path.join(MODEL_DIR, "feature_columns.json"), "r") as f:
     feature_cols = json.load(f)
 
-with open(os.path.join("data/crop_mapping.json"), "r") as f:
+with open(os.path.join(DATA_DIR, "crop_mapping.json"), "r") as f:
     crop_mapping = json.load(f)
-crop_reverse_mapping = crop_mapping["crop"]["reverse"]
+    crop_reverse_mapping = crop_mapping["crop"]["reverse"]
 
 # Load soil type encoder mapping
 soil_type_mapping = crop_mapping["soil_type"]["forward"]

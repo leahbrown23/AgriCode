@@ -79,6 +79,7 @@ class Crop(models.Model):
     plot = models.ForeignKey(Plot, to_field='unique_plot_key', on_delete=models.CASCADE, null=True)
     crop_type = models.CharField(max_length=100)
     crop_variety = models.CharField(max_length=100)
+    soil_type = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planting")
 
     def __str__(self):
