@@ -43,6 +43,58 @@ const CROP_OPTIMAL_RANGES = {
   rice: { N: [100, 200], P: [20, 70], K: [65, 120], pH_level: [5.5, 6.5] },
 }
 
+// Add this after CROP_OPTIMAL_RANGES constant
+const CROP_DETAILS = {
+  wheat: {
+    season: "Winter/Spring",
+    growthPeriod: "120-150 days",
+    waterRequirement: "Medium",
+    difficulty: "Easy",
+    marketValue: "Stable",
+    description: "Hardy cereal crop, good for beginners"
+  },
+  tomato: {
+    season: "Spring/Summer", 
+    growthPeriod: "75-90 days",
+    waterRequirement: "High",
+    difficulty: "Medium",
+    marketValue: "High",
+    description: "High-value vegetable, requires careful management"
+  },
+  sugarcane: {
+    season: "Year-round",
+    growthPeriod: "12-18 months", 
+    waterRequirement: "High",
+    difficulty: "Medium",
+    marketValue: "Stable",
+    description: "Long-term crop with consistent returns"
+  },
+  maize: {
+    season: "Summer",
+    growthPeriod: "90-120 days",
+    waterRequirement: "Medium",
+    difficulty: "Easy", 
+    marketValue: "Stable",
+    description: "Versatile crop with multiple uses"
+  },
+  potato: {
+    season: "Cool seasons",
+    growthPeriod: "70-90 days",
+    waterRequirement: "Medium",
+    difficulty: "Easy",
+    marketValue: "Stable", 
+    description: "Fast-growing, good soil aerator"
+  },
+  rice: {
+    season: "Monsoon",
+    growthPeriod: "120-150 days",
+    waterRequirement: "Very High",
+    difficulty: "Medium",
+    marketValue: "Stable",
+    description: "Staple crop, requires flooded fields"
+  }
+}
+
 const METRIC_INFO = {
   pH_level: {
     name: "pH Level",
@@ -107,52 +159,95 @@ export default function InsightsScreen({
     return "optimal"
   }
 
-  // Function to get recommended crops
-  function getRecommendedCrops(soilData, currentSoilType) {
-    if (!soilData) return []
-    const soilType = currentSoilType?.toLowerCase() || "loamy"
-    const recommendations = []
+  // Function to get single ML crop recommendation
+  // ...existing code...
 
-    Object.entries(CROP_OPTIMAL_RANGES).forEach(([cropName, ranges]) => {
-      let score = 0
-      let totalMetrics = 0
-      const details = {}
+// Function to get single ML crop recommendation
+// ...existing code...
 
-      Object.entries(ranges).forEach(([nutrient, [min, max]]) => {
-        const currentValue = soilData[nutrient]
-        if (currentValue != null) {
-          totalMetrics++
-          if (currentValue >= min && currentValue <= max) {
-            score += 100
-            details[nutrient] = "optimal"
-          } else {
-            const mid = (min + max) / 2
-            const range = max - min
-            const distance = Math.abs(currentValue - mid)
-            const normalizedDistance = distance / (range / 2)
-            const partialScore = Math.max(0, 100 - (normalizedDistance * 50))
-            score += partialScore
-            details[nutrient] = currentValue < min ? "low" : "high"
-          }
+// Function to get single ML crop recommendation
+async function getMLCropRecommendation(soilData, currentSoilType) {
+  if (!soilData) return null
+
+  try {
+    // Ensure we have all required fields with default values
+    const payload = {
+      N: soilData.N || 100,
+      P: soilData.P || 50,
+      K: soilData.K || 100,
+      pH: soilData.pH_level || 6.5,
+      Temperature: soilData.Temperature || 25,
+      Humidity: soilData.Humidity || 60,
+      Rainfall: soilData.Rainfall || 500,
+      Soil_Type: currentSoilType || "Loamy",
+    }
+
+    console.log("Sending ML recommendation request:", payload)
+    
+    const res = await api.post("/ml/recommend-crop/", payload)
+    console.log("ML recommendation response:", res.data)
+    
+    // Handle the single recommendation format
+    const recommendation = res.data.recommendation
+    
+    if (recommendation && recommendation.crop) {
+      // Clean up crop name in case there are any formatting issues
+      let cropName = recommendation.crop.toString().toLowerCase().trim()
+      
+      // Ensure it's a valid crop name
+      const validCrops = ['wheat', 'tomato', 'sugarcane', 'maize', 'potato', 'rice']
+      if (!validCrops.includes(cropName)) {
+        console.warn(`Invalid crop name received: ${cropName}, defaulting to maize`)
+        cropName = 'maize'
+      }
+      
+      return {
+        crop: cropName,
+        mlConfidence: parseInt(recommendation.ml_confidence) || 75,
+        compatibilityScore: parseInt(recommendation.compatibility_score) || getCompatibilityScore(cropName, soilData),
+        soilTypeCompatible: SOIL_TYPE_PREFERENCES[cropName]?.includes(currentSoilType?.toLowerCase()) || false,
+      }
+    }
+    
+    return null
+  } catch (err) {
+    console.error("ML recommendation failed:", err)
+    console.error("Error details:", err.response?.data)
+    console.error("Error status:", err.response?.status)
+    return null
+  }
+}
+
+// ...existing code...
+
+// ...existing code...
+
+  // Add helper function for compatibility calculation
+  function getCompatibilityScore(cropName, soilData) {
+    if (!CROP_OPTIMAL_RANGES[cropName] || !soilData) return 50
+    
+    const ranges = CROP_OPTIMAL_RANGES[cropName]
+    let score = 0
+    let totalMetrics = 0
+    
+    Object.entries(ranges).forEach(([nutrient, [min, max]]) => {
+      const currentValue = soilData[nutrient]
+      if (currentValue != null) {
+        totalMetrics++
+        if (currentValue >= min && currentValue <= max) {
+          score += 100
+        } else {
+          const mid = (min + max) / 2
+          const range = max - min
+          const distance = Math.abs(currentValue - mid)
+          const normalizedDistance = distance / (range / 2)
+          const partialScore = Math.max(0, 100 - (normalizedDistance * 40))
+          score += partialScore
         }
-      })
-
-      if (totalMetrics > 0) {
-        const avgScore = score / totalMetrics
-        const soilTypeCompatible = SOIL_TYPE_PREFERENCES[cropName]?.includes(soilType) || false
-        const finalScore = soilTypeCompatible ? avgScore + 10 : avgScore
-
-        recommendations.push({
-          crop: cropName,
-          score: Math.min(100, finalScore),
-          soilTypeCompatible,
-          details,
-          ranges
-        })
       }
     })
-
-    return recommendations.sort((a, b) => b.score - a.score).slice(0, 3)
+    
+    return totalMetrics > 0 ? Math.round(score / totalMetrics) : 50
   }
 
   /* Fetch plots with sensors */
@@ -330,6 +425,9 @@ export default function InsightsScreen({
       N: safeNum(item.N ?? item.n),
       P: safeNum(item.P ?? item.p),
       K: safeNum(item.K ?? item.k),
+      Temperature: safeNum(item.Temperature ?? item.temperature),
+      Humidity: safeNum(item.Humidity ?? item.humidity),
+      Rainfall: safeNum(item.Rainfall ?? item.rainfall),
     }
   }
 
@@ -464,6 +562,52 @@ export default function InsightsScreen({
   const hasCustomRanges = localStorage.getItem("customSoilRanges") !== null
   const hasCropSpecificRanges =
     selectedPlotInfo && CROP_OPTIMAL_RANGES[selectedPlotInfo.crop.toLowerCase()]
+
+  // State for single ML recommendation and current crop analysis
+  const [mlRecommendation, setMlRecommendation] = useState(null)
+  const [currentCropAnalysis, setCurrentCropAnalysis] = useState(null)
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
+
+  // Fetch ML recommendation and analyze current crop
+  useEffect(() => {
+    if (soilData && plotSoilType !== undefined && selectedPlotInfo) {
+      setIsLoadingRecommendations(true)
+      
+      // Get ML recommendation
+      getMLCropRecommendation(soilData, plotSoilType)
+        .then(recommendation => {
+          setMlRecommendation(recommendation)
+        })
+        .catch(err => {
+          console.error("Failed to get ML recommendation:", err)
+          setMlRecommendation(null)
+        })
+      
+      // Analyze current crop if we have one
+      if (selectedPlotInfo.crop && selectedPlotInfo.crop !== "Unknown Crop") {
+        const currentCrop = selectedPlotInfo.crop.toLowerCase()
+        try {
+          // Calculate compatibility for current crop using the same logic
+          const compatibilityScore = getCompatibilityScore(currentCrop, soilData)
+          setCurrentCropAnalysis({
+            crop: currentCrop,
+            compatibilityScore: compatibilityScore,
+            soilTypeCompatible: SOIL_TYPE_PREFERENCES[currentCrop]?.includes(plotSoilType?.toLowerCase()) || false,
+          })
+        } catch (err) {
+          console.error("Failed to analyze current crop:", err)
+          setCurrentCropAnalysis(null)
+        }
+      } else {
+        setCurrentCropAnalysis(null)
+      }
+      
+      setIsLoadingRecommendations(false)
+    } else {
+      setMlRecommendation(null)
+      setCurrentCropAnalysis(null)
+    }
+  }, [soilData, plotSoilType, selectedPlotInfo])
 
   /* Render */
   return (
@@ -854,11 +998,11 @@ export default function InsightsScreen({
               )}
             </div>
 
-            {/* Recommended Crops */}
+            {/* Single ML Recommendation + Current Crop Analysis */}
             <div className="bg-white rounded-xl shadow-lg p-5">
               <h3 className="font-bold text-gray-800 mb-3 flex items-center">
                 <Leaf className="w-5 h-5 mr-2 text-green-600" />
-                Recommended Crops for Current Conditions
+                Crop Recommendation
               </h3>
 
               {soilData ? (
@@ -869,137 +1013,169 @@ export default function InsightsScreen({
                       ? plotSoilType.charAt(0).toUpperCase() + plotSoilType.slice(1)
                       : "Unknown"}
                   </div>
-                  <div className="space-y-3">
-                    {getRecommendedCrops(soilData, plotSoilType).map(
-                      (recommendation, index) => {
-                        const { crop, score, soilTypeCompatible, details } = recommendation
-                        const isCurrentCrop =
-                          selectedPlotInfo?.crop.toLowerCase() === crop
-
-                        return (
-                          <div
-                            key={crop}
-                            className={`border rounded-lg p-4 ${
-                              isCurrentCrop
-                                ? "border-green-400 bg-green-50"
-                                : "border-gray-200"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center">
-                                <div
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3 ${
-                                    index === 0
-                                      ? "bg-green-500"
-                                      : index === 1
-                                      ? "bg-blue-500"
-                                      : "bg-orange-500"
-                                  }`}
-                                >
-                                  {index + 1}
+                  
+                  {isLoadingRecommendations ? (
+                    <div className="text-center py-4">
+                      <LoadingSpinner />
+                      <p className="text-sm text-gray-600 mt-2">Getting ML prediction...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* ML Recommendation */}
+                      {mlRecommendation ? (
+                        <div className="border-2 border-green-400 rounded-lg p-4 bg-green-50">
+                          <div className="flex items-center mb-3">
+                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                              AI
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-lg text-gray-800 capitalize">
+                                  {mlRecommendation.crop}
+                                </span>
+                                <div className="text-right">
+                                  <div className="text-xl font-bold text-green-600">
+                                    
+                                  </div>
+                                
                                 </div>
-                                <span className="font-semibold text-gray-800 capitalize">
-                                  {crop}
-                                  {isCurrentCrop && (
-                                    <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                                      Current Crop
-                                    </span>
-                                  )}
+                              </div>
+                              <div className="text-sm text-green-700 font-medium">
+                                Recommended Crop
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ML Recommendation Details */}
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div className="bg-white rounded p-3">
+                              <div className="text-xs text-gray-500">Soil Compatibility</div>
+                              <div className="text-lg font-bold text-blue-600">
+                                {mlRecommendation.compatibilityScore}%
+                              </div>
+                            </div>
+                            <div className={`rounded p-3 ${mlRecommendation.soilTypeCompatible ? "bg-green-100" : "bg-orange-100"}`}>
+                              <div className="text-xs font-medium flex items-center">
+                                {mlRecommendation.soilTypeCompatible ? (
+                                  <CheckCircle className="w-3 h-3 text-green-500 mr-1" />
+                                ) : (
+                                  <XCircle className="w-3 h-3 text-orange-500 mr-1" />
+                                )}
+                                <span className={mlRecommendation.soilTypeCompatible ? "text-green-600" : "text-orange-600"}>
+                                  Soil Type Match
                                 </span>
                               </div>
-                              <div className="text-right">
-                                <div
-                                  className={`text-lg font-bold ${
-                                    score >= 80
-                                      ? "text-green-600"
-                                      : score >= 60
-                                      ? "text-blue-600"
-                                      : score >= 40
-                                      ? "text-yellow-600"
-                                      : "text-red-600"
-                                  }`}
-                                >
-                                  {Math.round(score)}%
-                                </div>
-                                <div className="text-xs text-gray-500">Compatibility</div>
+                              <div className={`text-sm font-medium ${mlRecommendation.soilTypeCompatible ? "text-green-700" : "text-orange-700"}`}>
+                                {mlRecommendation.soilTypeCompatible ? "Excellent" : "Consider"}
                               </div>
                             </div>
-                            <div className="flex items-center mb-2">
-                              {soilTypeCompatible ? (
-                                <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                              ) : (
-                                <XCircle className="w-4 h-4 text-orange-500 mr-2" />
-                              )}
-                              <span className="text-sm text-gray-600">
-                                {soilTypeCompatible
-                                  ? "Excellent soil type match"
-                                  : "Soil type needs consideration"}
-                              </span>
-                            </div>
+                          </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              {Object.entries(details).map(([nutrient, status]) => (
-                                <div key={nutrient} className="flex items-center">
-                                  <div
-                                    className={`w-2 h-2 rounded-full mr-2 ${
-                                      status === "optimal"
-                                        ? "bg-green-500"
-                                        : status === "low"
-                                        ? "bg-yellow-500"
-                                        : "bg-orange-500"
-                                    }`}
-                                  />
-                                  <span className="text-gray-600">
-                                    {nutrient === "pH_level" ? "pH" : nutrient}:
-                                    <span
-                                      className={`ml-1 font-medium ${
-                                        status === "optimal"
-                                          ? "text-green-600"
-                                          : status === "low"
-                                          ? "text-yellow-600"
-                                          : "text-orange-600"
-                                      }`}
-                                    >
-                                      {status === "optimal"
-                                        ? "Perfect"
-                                        : status === "low"
-                                        ? "Below optimal"
-                                        : "Above optimal"}
-                                    </span>
+                          
+
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <div className="flex items-start">
+                              <Info className="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                              <div className="text-sm text-blue-800">
+                                <strong>Recommendation:</strong> Based on your soil conditions, our machine learning model predicts {mlRecommendation.crop} as the optimal crop choice.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                          <div className="text-center text-gray-500">
+                            <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+                            <p className="font-medium">No ML Recommendation Available</p>
+                            <p className="text-sm">Unable to generate prediction for current conditions</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Current Crop Analysis */}
+                      {currentCropAnalysis && (
+                        <div className="border-2 border-blue-400 rounded-lg p-4 bg-blue-50">
+                          <div className="flex items-center mb-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                              📍
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-lg text-gray-800 capitalize">
+                                  {currentCropAnalysis.crop}
+                                </span>
+                                <div className="text-right">
+                                  <div className="text-xl font-bold text-blue-600">
+                                    {currentCropAnalysis.compatibilityScore}%
+                                  </div>
+                                  <div className="text-xs text-gray-500">Compatibility</div>
+                                </div>
+                              </div>
+                              <div className="text-sm text-blue-700 font-medium">
+                                🌱 Your Current Crop
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3">
+                            <div className={`rounded p-3 ${currentCropAnalysis.soilTypeCompatible ? "bg-green-100" : "bg-orange-100"}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  {currentCropAnalysis.soilTypeCompatible ? (
+                                    <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                                  ) : (
+                                    <XCircle className="w-4 h-4 text-orange-500 mr-2" />
+                                  )}
+                                  <span className="text-sm font-medium">
+                                    {currentCropAnalysis.soilTypeCompatible ? "Good soil type match" : "Soil type could be better"}
                                   </span>
                                 </div>
-                              ))}
-                            </div>
-
-                            {index === 0 && !isCurrentCrop && (
-                              <div className="mt-3 bg-blue-50 rounded-lg p-2">
-                                <div className="flex items-start">
-                                  <Info className="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                                  <div className="text-sm text-blue-800">
-                                    <strong>Best match!</strong> Consider {crop} for your
-                                    next planting cycle.
-                                  </div>
-                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                  currentCropAnalysis.compatibilityScore >= 80 ? "bg-green-100 text-green-700" :
+                                  currentCropAnalysis.compatibilityScore >= 60 ? "bg-yellow-100 text-yellow-700" :
+                                  "bg-red-100 text-red-700"
+                                }`}>
+                                  {currentCropAnalysis.compatibilityScore >= 80 ? "Excellent" :
+                                   currentCropAnalysis.compatibilityScore >= 60 ? "Good" : "Needs Attention"}
+                                </span>
                               </div>
-                            )}
+                            </div>
                           </div>
-                        )
-                      }
-                    )}
-                  </div>
 
-                  <div className="mt-4 text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
-                    <strong>Note:</strong> Recommendations are based on current soil
-                    nutrient levels and soil type compatibility. Consider seasonal
-                    factors, market demand, and your farming experience when making crop
-                    decisions.
+                          {/* Comparison with ML recommendation */}
+                          {mlRecommendation && mlRecommendation.crop !== currentCropAnalysis.crop && (
+                            <div className="mt-3 bg-white rounded-lg p-3">
+                              <div className="text-sm text-gray-700">
+                                <strong>Comparison:</strong> AI suggests switching to {mlRecommendation.crop} 
+                                ({mlRecommendation.mlConfidence}% confidence) vs your current {currentCropAnalysis.crop} 
+                                ({currentCropAnalysis.compatibilityScore}% compatibility)
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ML Explanation */}
+                  <div className="mt-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center">
+                      <Activity className="w-4 h-4 mr-2 text-purple-600" />
+                      How It Works
+                    </h4>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <div>• <strong>Single Prediction:</strong> ML model analyzes all factors and predicts one optimal crop</div>
+                      <div>• <strong>Confidence Score:</strong> Shows how certain the AI is about its recommendation</div>
+                      <div>• <strong>Compatibility:</strong> Separate analysis of how well soil conditions match crop needs</div>
+                      <div>• <strong>Current Crop:</strong> Analysis of your existing crop's suitability</div>
+                    </div>
                   </div>
                 </>
               ) : (
                 <div className="text-center text-gray-500 py-4">
                   <Leaf className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm">
-                    Select a plot with soil data to see crop recommendations
+                    Select a plot with soil data to see ML recommendation
                   </p>
                 </div>
               )}

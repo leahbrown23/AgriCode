@@ -9,7 +9,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),   # ✅ this adds the /api prefix once
+    path('api/', include('api.urls')),
     path('forum/', include('forum.urls')),
-    path('ml/', include('ml.urls')),
+    path('ml/', include('ml.urls')),  # Add this line
 ]
