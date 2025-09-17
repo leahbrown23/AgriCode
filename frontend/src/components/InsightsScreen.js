@@ -1047,29 +1047,40 @@ async function getMLCropRecommendation(soilData, currentSoilType) {
                           </div>
 
                           {/* ML Recommendation Details */}
-                          <div className="grid grid-cols-2 gap-3 mb-3">
-                            <div className="bg-white rounded p-3">
-                              <div className="text-xs text-gray-500">Soil Compatibility</div>
-                              <div className="text-lg font-bold text-blue-600">
-                                {mlRecommendation.compatibilityScore}%
-                              </div>
-                            </div>
-                            <div className={`rounded p-3 ${mlRecommendation.soilTypeCompatible ? "bg-green-100" : "bg-orange-100"}`}>
-                              <div className="text-xs font-medium flex items-center">
-                                {mlRecommendation.soilTypeCompatible ? (
-                                  <CheckCircle className="w-3 h-3 text-green-500 mr-1" />
-                                ) : (
-                                  <XCircle className="w-3 h-3 text-orange-500 mr-1" />
-                                )}
-                                <span className={mlRecommendation.soilTypeCompatible ? "text-green-600" : "text-orange-600"}>
-                                  Soil Type Match
-                                </span>
-                              </div>
-                              <div className={`text-sm font-medium ${mlRecommendation.soilTypeCompatible ? "text-green-700" : "text-orange-700"}`}>
-                                {mlRecommendation.soilTypeCompatible ? "Excellent" : "Consider"}
-                              </div>
-                            </div>
-                          </div>
+<div className="grid grid-cols-1 gap-3 mb-3">
+  <div
+    className={`rounded p-3 ${
+      mlRecommendation.soilTypeCompatible ? "bg-green-100" : "bg-orange-100"
+    }`}
+  >
+    <div className="text-xs font-medium flex items-center">
+      {mlRecommendation.soilTypeCompatible ? (
+        <CheckCircle className="w-3 h-3 text-green-500 mr-1" />
+      ) : (
+        <XCircle className="w-3 h-3 text-orange-500 mr-1" />
+      )}
+      <span
+        className={
+          mlRecommendation.soilTypeCompatible
+            ? "text-green-600"
+            : "text-orange-600"
+        }
+      >
+        Soil Type Match
+      </span>
+    </div>
+    <div
+      className={`text-sm font-medium ${
+        mlRecommendation.soilTypeCompatible
+          ? "text-green-700"
+          : "text-orange-700"
+      }`}
+    >
+      {mlRecommendation.soilTypeCompatible ? "Excellent" : "Consider"}
+    </div>
+  </div>
+</div>
+
 
                           
 
