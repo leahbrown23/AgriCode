@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 import SoilHealthGraphs from "./SoilHealthGraphs"
+import { getOptimalRanges, calculateSoilScore, getScoreClassification } from "../utils/soilHealthCalculator"
 
 export default function SoilHealthScreen({
   onBackClick,
@@ -26,14 +27,13 @@ export default function SoilHealthScreen({
   onMenuClick,
 }) {
   // readings
-  const [soilData, setSoilData] = useState(null)       // latest reading (object)
-  const [historyData, setHistoryData] = useState([])   // trend data (array)
+  const [soilData, setSoilData] = useState(null)
+  const [historyData, setHistoryData] = useState([])
 
   // plots / selection
-  const [plotOptions, setPlotOptions] = useState([])   // only plots with sensors
+  const [plotOptions, setPlotOptions] = useState([])
   const [selectedPlot, setSelectedPlot] = useState(() => localStorage.getItem("selectedSoilPlot") || "")
-  const [plotsWithSensors, setPlotsWithSensors] = useState(new Set()) // Set(["6801", ...])
-  const [linkedMeta, setLinkedMeta] = useState(new Map()) // plotId -> { sensorId, cropVariety? }
+  const [plotsWithSensors, setPlotsWithSensors] = useState(new Set())
 
   // ui
   const [isLoadingPlotData, setIsLoadingPlotData] = useState(false)
@@ -41,52 +41,30 @@ export default function SoilHealthScreen({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
-  // user (optional)
-  const [user, setUser] = useState(null)
-
-  /* ---------------- profile (optional) ---------------- */
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get("/api/profile/")
-        setUser(res.data)
-      } catch (err) {
-        console.error("Failed to load user profile:", err)
-      }
-    })()
-  }, [])
-
-  /* ---------------- plots + linked sensors ----------------
-     Build the dropdown from the user's PLOTS, but FILTER to
-     only those that have a linked/active sensor.
-  --------------------------------------------------------- */
+  /* ---------------- plots + linked sensors ---------------- */
   useEffect(() => {
     (async () => {
       try {
         const plotsRes = await api.get("/api/farm/plots/")
         const plotsRaw = plotsRes.data?.results || plotsRes.data || []
-        
-        // Fetch crop data separately
+
         const cropsRes = await api.get("/api/farm/crops/")
         const cropsRaw = cropsRes.data?.results || cropsRes.data || []
-        
-        // Create a map of plot_id to crop info
+
         const plotToCrop = new Map()
         cropsRaw.forEach(crop => {
           const plotId = String(crop.plot_number || crop.plot_code)
           const cropName = crop.crop_type || crop.name
+          const soilType = crop.soil_type
           if (plotId && cropName) {
-            plotToCrop.set(plotId, cropName)
+            plotToCrop.set(plotId, { cropName, soilType })
           }
         })
-        
+
         const allPlotIds = plotsRaw.map(p => String(p.plot_id))
-
-        // 1) derive linked plots & sensor meta from sim
         const { plotSet: linkedFromSim, meta: simMeta } = await linkedPlotsFromSim()
+        const meta = new Map(simMeta)
 
-        // 2) fallback/confirm by probing sensors/data to (a) mark as linked and (b) fetch sensorId
-        const meta = new Map(simMeta) // start with what sim gave us
         const stillUnknown = allPlotIds.filter(pid => !linkedFromSim.has(pid))
         if (stillUnknown.length) {
           const checks = await Promise.allSettled(
@@ -96,8 +74,6 @@ export default function SoilHealthScreen({
             const pid = stillUnknown[i]
             if (r.status === "fulfilled") {
               const payload = r.value?.data || {}
-
-              // identify as linked if any data shape exists
               const hasData =
                 !!payload?.linked_sensor_id ||
                 !!payload?.sensor_id ||
@@ -107,7 +83,6 @@ export default function SoilHealthScreen({
 
               if (hasData) linkedFromSim.add(pid)
 
-              // capture sensorId if present
               const latestLike =
                 payload.latest || payload.latest_reading || payload.latestReading || payload
               const sensorId =
@@ -123,25 +98,25 @@ export default function SoilHealthScreen({
           })
         }
 
-        // 3) filter & build labels "SensorID : PlotID : CropVariety"
         const options = plotsRaw
           .filter(p => linkedFromSim.has(String(p.plot_id)))
           .map(p => {
             const pid = String(p.plot_id)
             const m = meta.get(pid) || {}
             const sensorId = m.sensorId || "—"
-            const cropVar = plotToCrop.get(pid) || "—"
+            const cropInfo = plotToCrop.get(pid)
+            const cropVar = cropInfo?.cropName || "—"
             return {
               value: pid,
               label: `${sensorId} : ${pid} : ${cropVar}`,
+              crop: cropVar,
+              soilType: cropInfo?.soilType || null,
             }
           })
 
         setPlotsWithSensors(linkedFromSim)
         setPlotOptions(options)
-        setLinkedMeta(meta)
 
-        // keep a valid selection only
         const saved = localStorage.getItem("selectedSoilPlot")
         if (saved && options.find(o => String(o.value) === String(saved))) {
           setSelectedPlot(String(saved))
@@ -161,13 +136,11 @@ export default function SoilHealthScreen({
     })()
   }, [])
 
-  // tolerant parser for /api/sim/status/ that returns both set & meta
   async function linkedPlotsFromSim() {
     try {
       const res = await api.get("/api/sim/status/")
       const data = res.data
 
-      // normalize into a flat array of device-ish objects
       const arrays = []
       if (Array.isArray(data)) arrays.push(data)
       else if (data && typeof data === "object")
@@ -175,10 +148,9 @@ export default function SoilHealthScreen({
       const devices = arrays.flat()
 
       const plotSet = new Set()
-      const meta = new Map() // plotId -> { sensorId }
+      const meta = new Map()
 
       devices.forEach((d) => {
-        // try multiple shapes for plot id
         let pid = null
         if (d?.plot_id) pid = String(d.plot_id)
         else if (d?.plot_number) pid = String(d.plot_number)
@@ -193,8 +165,6 @@ export default function SoilHealthScreen({
         if (!pid) return
 
         plotSet.add(pid)
-
-        // sensor id in many shapes
         const sid =
           d.sensor_id ?? d.sensor ?? d.device_id ?? d.external_id ?? d.id ?? null
         if (!meta.has(pid)) meta.set(pid, {})
@@ -209,12 +179,10 @@ export default function SoilHealthScreen({
 
   /* ---------------- data fetchers ---------------- */
   const fetchLatestAndHistory = async (plotId) => {
-    // Prefer the consolidated endpoint first
     try {
       const res = await api.get(`/api/sensors/data/${encodeURIComponent(plotId)}/`)
       const payload = res.data
 
-      // possible shapes
       const latest =
         payload.latest ||
         payload.latest_reading ||
@@ -232,12 +200,10 @@ export default function SoilHealthScreen({
         history: (history || []).map(normalizeReading).filter(isCompleteReading),
       }
     } catch {
-      // graceful fallback to your existing split endpoints
       const [latestRes, histRes] = await Promise.all([
         api.get(`/api/latest-reading/?plot_number=${encodeURIComponent(plotId)}`),
         api.get(`/api/reading-history/?plot_number=${encodeURIComponent(plotId)}`),
       ])
-
       const latest = normalizeReading(latestRes.data)
       const history = (histRes.data || [])
         .map(normalizeReading)
@@ -247,7 +213,6 @@ export default function SoilHealthScreen({
     }
   }
 
-  // refresh when the selected plot changes
   useEffect(() => {
     if (!selectedPlot) {
       setSoilData(null)
@@ -282,11 +247,7 @@ export default function SoilHealthScreen({
         if (String(m.plot_id ?? m.plot ?? "") !== String(selectedPlot)) return
 
         const reading = normalizeReading(m)
-
-        // latest card
         setSoilData(reading)
-
-        // trends array
         setHistoryData((prev = []) => {
           const next = prev.slice()
           next.push(reading)
@@ -310,27 +271,13 @@ export default function SoilHealthScreen({
     return () => window.removeEventListener("mousedown", handleClick)
   }, [dropdownOpen])
 
-  // Get score and classification from localStorage (set by InsightsScreen) or calculate fallback
-  function getScoreAndClassification() {
-    const storedScore = localStorage.getItem('soilHealthScore')
-    const storedClassification = localStorage.getItem('soilHealthClassification')
-    
-    if (storedScore && storedClassification && soilData) {
-      return {
-        score: parseInt(storedScore),
-        classification: storedClassification
-      }
-    }
-    
-    // Fallback calculation if no stored values
-    const calculatedScore = soilData ? calculateSoilScore(soilData) : 0
-    return {
-      score: calculatedScore,
-      classification: getClassification(calculatedScore)
-    }
-  }
+  // ✅ Get soil health score using shared calculation
+  const selectedPlotInfo = plotOptions.find(o => String(o.value) === String(selectedPlot))
+  const optimalRanges = getOptimalRanges(selectedPlotInfo)
+  const { score, classification } = soilData 
+    ? calculateSoilScore(soilData, optimalRanges, selectedPlot)
+    : { score: 0, classification: "Unknown" }
 
-  const { score, classification } = getScoreAndClassification()
   const selectedLabel = plotOptions.find(o => String(o.value) === String(selectedPlot))?.label
 
   /* ---------------- render ---------------- */
@@ -355,7 +302,7 @@ export default function SoilHealthScreen({
           </button>
         </div>
 
-        {/* Plot Filter (shows ONLY plots with sensors) */}
+        {/* Plot Filter */}
         <div className="bg-white rounded-xl shadow-lg p-4">
           <div className="flex items-center mb-3">
             <div className="p-2 bg-green-100 rounded-lg mr-3 flex items-center justify-center">
@@ -404,7 +351,6 @@ export default function SoilHealthScreen({
             )}
           </div>
 
-          {/* Only show this hint if the selected plot truly has no linked sensor */}
           {selectedPlot && !plotsWithSensors.has(String(selectedPlot)) && (
             <div className="mt-3 flex items-start p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800">
               <AlertTriangle className="w-4 h-4 mt-0.5 mr-2" />
@@ -452,14 +398,10 @@ export default function SoilHealthScreen({
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
                     <div className="bg-white rounded-xl shadow-lg max-w-sm p-5 text-sm text-gray-800">
                       <h2 className="text-lg font-bold mb-3">How Soil Score is Calculated</h2>
-                      <p className="mb-2">The Soil Health Score calculates percentage distance from optimal ranges:</p>
-                      <ul className="list-disc list-inside mb-2">
-                        <li>pH Level: 6.0-7.5 (Weight: 15%)</li>
-                        <li>Nitrogen: 30-70 ppm (Weight: 40%)</li>
-                        <li>Phosphorus: 20-50 ppm (Weight: 25%)</li>
-                        <li>Potassium: 150-300 ppm (Weight: 20%)</li>
-                      </ul>
-                      <p className="mb-2">Score reflects how close your soil is to optimal conditions (100% = perfect). Calculated using crop-specific ranges when available.</p>
+                      <p className="mb-2">
+                        The Soil Health Score is calculated dynamically using crop-specific optimal ranges and weighted metrics (N, P, K, pH). 
+                        Each crop has its own targets, and being closer to those ranges gives a higher score.
+                      </p>
                       <div className="text-right mt-6">
                         <button onClick={() => setShowExplanation(false)} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
                           Close
@@ -480,7 +422,7 @@ export default function SoilHealthScreen({
                 </div>
               </div>
 
-              {/* Updated metric cards - removed moisture */}
+              {/* Metric cards */}
               <div className="grid grid-cols-2 gap-3">
                 <MetricCard color="yellow" label="pH Level" value={fmt(soilData.pH_level)} unit="pH" />
                 <MetricCard color="green" label="Nitrogen" value={fmt(soilData.N)} unit="ppm" Icon={Leaf} />
@@ -494,16 +436,20 @@ export default function SoilHealthScreen({
 
             {/* Status */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-4">
-              <div className="text-center text-white font-semibold">✅ No urgent issues detected</div>
+              <div className="text-center text-white font-semibold">
+                ✅ No urgent issues detected
+              </div>
             </div>
           </>
         ) : (
           <>
-            {/* Empty states - removed moisture */}
+            {/* Empty states */}
             <div className="bg-white rounded-xl shadow-lg p-5">
               <div className="text-center mb-6">
                 <div className="flex items-center justify-center mb-2">
-                  <span className="text-sm font-medium text-gray-400 mr-1">SOIL HEALTH SCORE</span>
+                  <span className="text-sm font-medium text-gray-400 mr-1">
+                    SOIL HEALTH SCORE
+                  </span>
                   <Info size={14} className="text-gray-300" />
                 </div>
                 <div className="text-6xl font-bold text-gray-300 mb-2">--</div>
@@ -511,7 +457,7 @@ export default function SoilHealthScreen({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {["pH Level","Nitrogen","Phosphorus","Potassium"].map((x, i) => (
+                {["pH Level","Nitrogen","Phosphorus","Potassium"].map((x) => (
                   <div key={x} className="bg-gray-50 rounded-lg p-4 text-center">
                     <div className="flex items-center justify-center mb-2">
                       <div className="w-4 h-4 bg-gray-400 rounded-full mr-1" />
@@ -524,31 +470,8 @@ export default function SoilHealthScreen({
             </div>
 
             <div className="bg-gray-100 rounded-xl shadow-lg p-4">
-              <div className="text-center text-gray-500 font-semibold">📊 No data available for analysis</div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-5">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <div className="p-2 bg-gray-100 rounded-lg mr-3"><Info className="w-4 h-4 text-gray-400" /></div>
-                Recommendations
-              </h2>
-              <div className="text-center py-8">
-                <div className="p-4 bg-gray-50 rounded-lg inline-block mb-4"><Info className="w-8 h-8 text-gray-400 mx-auto" /></div>
-                <p className="text-gray-500 font-medium">No data available</p>
-                <p className="text-sm text-gray-400">Connect a sensor to a plot to get live insights</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-5">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <div className="p-2 bg-gray-100 rounded-lg mr-3"><Activity className="w-4 h-4 text-gray-400" /></div>
-                Soil Trends
-              </h2>
-              <div className="bg-gray-50 h-40 rounded-lg flex items-center justify-center border border-gray-200">
-                <div className="text-center">
-                  <Activity className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <div className="text-gray-500 text-sm">No data available</div>
-                </div>
+              <div className="text-center text-gray-500 font-semibold">
+                📊 No data available for analysis
               </div>
             </div>
           </>
@@ -559,63 +482,48 @@ export default function SoilHealthScreen({
 
       {/* Bottom Nav */}
       <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white shadow-lg">
-        <button onClick={onHomeClick} className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"><Home size={20} className="text-gray-600" /></button>
-        <button onClick={onProfileClick} className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"><User size={20} className="text-gray-600" /></button>
-        <button onClick={onMenuClick} className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"><Menu size={20} className="text-gray-600" /></button>
+        <button
+          onClick={onHomeClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <Home size={20} className="text-gray-600" />
+        </button>
+        <button
+          onClick={onProfileClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <User size={20} className="text-gray-600" />
+        </button>
+        <button
+          onClick={onMenuClick}
+          className="flex flex-col items-center justify-center w-1/3 hover:bg-gray-50 transition-colors py-2"
+        >
+          <Menu size={20} className="text-gray-600" />
+        </button>
       </div>
     </div>
   )
 }
 
 /* ---------------- helpers ---------------- */
-function cropVarietyFromPlot(p = {}) {
-  return (
-    p.crop_variety ??
-    p.cropVariety ??
-    p.crop_name ??
-    p.cropName ??
-    p.crop_type ??
-    p.cropType ??
-    p.variety ??
-    p.crop ??
-    null
-  )
-}
-
 function normalizeReading(item = {}) {
   if (!item) return null
-  const ts =
-    item.timestamp || item.ts || item.created_at || item.time || null
-
-  const ph =
-    item.pH_level ?? item.ph_level ?? item.ph ?? null
-  const n  = item.N ?? item.n ?? null
-  const p  = item.P ?? item.p ?? null
-  const k  = item.K ?? item.k ?? null
-  const moisture = item.moisture_level ?? item.moisture ?? null
+  const ts = item.timestamp || item.ts || item.created_at || item.time || null
 
   return {
     timestamp: ts,
-    pH_level: safeNum(ph),
-    N: safeNum(n),
-    P: safeNum(p),
-    K: safeNum(k),
-    moisture_level: safeNum(moisture), // Keep for backward compatibility with existing data
+    pH_level: safeNum(item.pH_level ?? item.ph_level ?? item.ph ?? null),
+    N: safeNum(item.N ?? item.n ?? null),
+    P: safeNum(item.P ?? item.p ?? null),
+    K: safeNum(item.K ?? item.k ?? null),
+    moisture_level: safeNum(item.moisture_level ?? item.moisture ?? null),
     plot_id: item.plot_id ?? item.plot_number ?? item.plot ?? null,
     sensor_id: item.sensor_id ?? item.sensor ?? null,
   }
 }
 
 function isCompleteReading(r) {
-  if (!r) return false
-  // Updated to not require moisture_level for complete reading
-  return (
-    r.timestamp &&
-    r.pH_level != null &&
-    r.N != null &&
-    r.P != null &&
-    r.K != null
-  )
+  return r && r.timestamp && r.pH_level != null && r.N != null && r.P != null && r.K != null
 }
 
 function fmt(v) {
@@ -629,77 +537,9 @@ function safeNum(v) {
   return Number.isFinite(n) ? n : null
 }
 
-// Fallback soil score calculation (same as before but with improved weightings)
-function calculateSoilScore(d) {
-  // Optimal ranges for each metric
-  const OPTIMAL_RANGES = {
-    pH_level: [6.0, 7.5],  // Weight: 15%
-    N: [30, 70],           // Weight: 40%
-    P: [20, 50],           // Weight: 25%
-    K: [150, 300],         // Weight: 20%
-  }
-
-  const WEIGHTS = {
-    pH_level: 0.15,
-    N: 0.40,
-    P: 0.25,
-    K: 0.20,
-  }
-
-  function getMetricHealthPercentage(value, range) {
-    if (value == null || !range) return 50 // Give neutral score instead of 0
-    const [min, max] = range
-    const mid = (min + max) / 2
-    
-    if (value >= min && value <= max) {
-      // Inside optimal range - much more forgiving
-      const distanceFromCenter = Math.abs(value - mid)
-      const maxDistanceFromCenter = (max - min) / 2
-      const centerScore = 100 - (distanceFromCenter / maxDistanceFromCenter) * 10 // Reduced penalty from 20% to 10%
-      return Math.max(85, centerScore) // Increased minimum from 80% to 85%
-    } else if (value < min) {
-      // Below optimal range - less harsh penalty
-      const deficit = min - value
-      const penaltyPercentage = (deficit / min) * 100
-      return Math.max(20, 100 - penaltyPercentage * 1.2) // Reduced penalty from 2x to 1.2x
-    } else {
-      // Above optimal range - less harsh penalty
-      const excess = value - max
-      const penaltyPercentage = (excess / max) * 100
-      return Math.max(30, 100 - penaltyPercentage * 1.0) // Reduced penalty from 1.5x to 1.0x
-    }
-  }
-
-  const pH = safeNum(d.pH_level)
-  const N = safeNum(d.N)
-  const P = safeNum(d.P)
-  const K = safeNum(d.K)
-
-  const pHHealth = getMetricHealthPercentage(pH, OPTIMAL_RANGES.pH_level)
-  const nHealth = getMetricHealthPercentage(N, OPTIMAL_RANGES.N)
-  const pHealth = getMetricHealthPercentage(P, OPTIMAL_RANGES.P)
-  const kHealth = getMetricHealthPercentage(K, OPTIMAL_RANGES.K)
-
-  // Weighted average
-  const weightedScore = (pHHealth * WEIGHTS.pH_level) + 
-                       (nHealth * WEIGHTS.N) + 
-                       (pHealth * WEIGHTS.P) + 
-                       (kHealth * WEIGHTS.K)
-  
-  return Math.round(weightedScore)
-}
-
-function getClassification(s) { 
-  if (s >= 85) return "Excellent"
-  if (s >= 70) return "Good"
-  if (s >= 55) return "Moderate"
-  if (s >= 40) return "Fair"
-  return "Poor"
-}
-
-function getScoreColor(s) { 
+function getScoreColor(s) {
   if (s >= 85) return "rgb(67,160,71)"   // Green
-  if (s >= 70) return "rgb(33,150,243)"  // Blue  
+  if (s >= 70) return "rgb(33,150,243)"  // Blue
   if (s >= 55) return "rgb(251,192,45)"  // Yellow
   if (s >= 40) return "rgb(255,152,0)"   // Orange
   return "rgb(229,57,53)"                // Red
@@ -718,7 +558,9 @@ function MetricCard({ color, label, value, unit, Icon, full }) {
   return (
     <div className={`${colors[0]} rounded-lg p-4 text-center ${full ? "col-span-2" : ""}`}>
       <div className="flex items-center justify-center mb-2">
-        {Icon ? <Icon className={`w-4 h-4 ${colors[1]} mr-1`} /> : <div className={`w-4 h-4 rounded-full mr-1 ${colors[1].replace("text","bg")}`} />}
+        {Icon
+          ? <Icon className={`w-4 h-4 ${colors[1]} mr-1`} />
+          : <div className={`w-4 h-4 rounded-full mr-1 ${colors[1].replace("text","bg")}`} />}
         <span className={`text-xs font-medium ${colors[1]}`}>{label}</span>
       </div>
       <div className={`text-lg font-bold ${colors[2]}`}>{value}</div>

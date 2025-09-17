@@ -14,7 +14,6 @@ import { Activity } from "lucide-react"
 
 const graphDefs = [
   { key: "pH_level", label: "pH Level", color: "#a78bfa" },
-  { key: "moisture_level", label: "Moisture (%)", color: "#3b82f6" },
   { key: "N", label: "Nitrogen (ppm)", color: "#22c55e" },
   { key: "P", label: "Phosphorus (ppm)", color: "#a78bfa" },
   { key: "K", label: "Potassium (ppm)", color: "#fb923c" },
