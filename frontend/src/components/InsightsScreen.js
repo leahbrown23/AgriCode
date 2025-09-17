@@ -1146,9 +1146,9 @@ async function getMLCropRecommendation(soilData, currentSoilType) {
                           {mlRecommendation && mlRecommendation.crop !== currentCropAnalysis.crop && (
                             <div className="mt-3 bg-white rounded-lg p-3">
                               <div className="text-sm text-gray-700">
-                                <strong>Comparison:</strong> AI suggests switching to {mlRecommendation.crop} 
-                                ({mlRecommendation.mlConfidence}% confidence) vs your current {currentCropAnalysis.crop} 
-                                ({currentCropAnalysis.compatibilityScore}% compatibility)
+                                <strong>Comparison:</strong> AI suggests switching to {mlRecommendation.crop}  
+                                 , instead of  {currentCropAnalysis.crop} 
+                                
                               </div>
                             </div>
                           )}
