@@ -21,6 +21,7 @@ def farm_crops(request):
                     "plot_number": c.plot_number,
                     "crop_type": c.crop_type,
                     "crop_variety": c.crop_variety,
+                    "soil_type": c.soil_type,
                     "status": c.status,
                 })
             return Response(rows)
@@ -32,13 +33,15 @@ def farm_crops(request):
 
         crop_type     = data.get('crop_type') or data.get('cropType')
         crop_variety  = data.get('crop_variety') or data.get('cropVariety')
+        soil_type     = data.get('soil_type') or data.get('soilType')
         status_val    = data.get('status', 'planting')
 
-        if not crop_type or not crop_variety or not (plot_id_raw or plot_code or plot_key):
+        if not crop_type or not crop_variety or not soil_type or not (plot_id_raw or plot_code or plot_key):
             return Response(
-                {'error': 'plot_id/plot_code/plot_key, crop_type and crop_variety are required'},
+                {'error': 'plot_id/plot_code/plot_key, crop_type, crop_variety and soil_type are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
 
         plot = None
         if plot_id_raw is not None:
@@ -74,6 +77,7 @@ def farm_crops(request):
             plot_number=plot.plot_id,
             crop_type=crop_type,
             crop_variety=crop_variety,
+            soil_type=soil_type,
             status=status_val
         )
 
@@ -83,6 +87,7 @@ def farm_crops(request):
             'plot_code': plot.plot_id,
             'crop_type': crop.crop_type,
             'crop_variety': crop.crop_variety,
+            'soil_type': crop.soil_type,
             'status': crop.status,
         }, status=status.HTTP_201_CREATED)
 
@@ -106,6 +111,7 @@ def crop_detail(request, crop_id):
             'plot_number': crop.plot_number,
             'crop_type': crop.crop_type,
             'crop_variety': crop.crop_variety,
+            'soil_type': crop.soil_type,
             'status': crop.status,
         })
     
@@ -115,6 +121,7 @@ def crop_detail(request, crop_id):
         plot_code = data.get('plot_code') or data.get('plotCode') or data.get('plot_number') or data.get('plotNumber')
         crop_type = data.get('crop_type') or data.get('cropType')
         crop_variety = data.get('crop_variety') or data.get('cropVariety')
+        soil_type = data.get('soil_type') or data.get('soilType')
         
         if plot_id_raw or plot_code:
             plot = None
@@ -141,6 +148,8 @@ def crop_detail(request, crop_id):
             crop.crop_type = crop_type
         if crop_variety:
             crop.crop_variety = crop_variety
+        if soil_type:
+            crop.soil_type = soil_type
             
         try:
             crop.save()
@@ -151,6 +160,7 @@ def crop_detail(request, crop_id):
                 'plot_number': crop.plot_number,
                 'crop_type': crop.crop_type,
                 'crop_variety': crop.crop_variety,
+                'soil_type': crop.soil_type,
                 'status': crop.status,
             })
         except Exception as e:
@@ -192,5 +202,6 @@ def update_crop_status(request, crop_id: int):
         'plot_code': crop.plot.plot_id if crop.plot else crop.plot_number,
         'crop_type': crop.crop_type,
         'crop_variety': crop.crop_variety,
+        'soil_type': crop.soil_type,
         'status': crop.status,
     })
