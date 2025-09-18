@@ -81,9 +81,10 @@ export default function ConnectSensorWizard({ plotOptions = [], onClose, onFinis
     
     try {
       // Fixed: Use device.id instead of device.device_id
-      await api.post(`/api/sensors/activate/${device.id}/`, { 
-        active: true 
-      })
+     await api.post(`/api/sensors/${device.id}/activate/`, { 
+  active: true 
+})
+
       
       setStep(4)
       

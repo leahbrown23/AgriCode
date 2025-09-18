@@ -28,13 +28,9 @@ urlpatterns = [
     path('favorites/', auth_views.get_favorites, name='get_favorites'),
 
     # -------------------------
-    # Farm (single endpoint used by FarmSetupScreen)
+    # Farm
     # -------------------------
     path('farm/', farm_views.farm_view, name='farm_view'),
-
-    # -------------------------
-    # Farm Management (list/create)
-    # -------------------------
     path('farms/', farm_views.get_farms, name='get_farms'),
     path('farms/create/', farm_views.create_farm, name='create_farm'),
 
@@ -47,7 +43,7 @@ urlpatterns = [
     path('farm/plots/<int:plot_id>/', plot_views.plot_detail, name='plot_detail'),
 
     # -------------------------
-    # Sensor Validation & Connection
+    # Sensor Management
     # -------------------------
     path('sensors/validate/', sensor_views.validate_sensor, name='validate_sensor'),
     path('sensors/connect/', sensor_views.connect_sensor, name='connect_sensor'),
@@ -55,19 +51,23 @@ urlpatterns = [
     path('sensors/<int:device_id>/toggle/', sensor_views.toggle_device, name='toggle_device'),
     path('sensors/<int:device_id>/delete/', sensor_views.delete_device, name='delete_device'),
 
+    # 🔥 Add aliases to match frontend `/sim/devices/...`
+    path('sim/devices/<int:device_id>/toggle/', sensor_views.toggle_device, name='sim_toggle_device'),
+    path('sim/devices/<int:device_id>/', sensor_views.delete_device, name='sim_delete_device'),
+
     # -------------------------
     # Sensor Data
     # -------------------------
     path('sensors/data/<int:plot_id>/', sim_views.get_sensor_data, name='get_sensor_data'),
 
     # -------------------------
-    # Soil Health (SoilSensorReading)
+    # Soil Health
     # -------------------------
     path('latest-reading/', reading_views.latest_reading, name='latest_reading'),
     path('reading-history/', reading_views.reading_history, name='reading_history'),
 
     # -------------------------
-    # Simulation (for FarmSetupScreen)
+    # Simulation
     # -------------------------
     path('sim/status/', sim_views.sim_status, name='sim_status'),
 
@@ -79,7 +79,6 @@ urlpatterns = [
     path('farm/crops/<int:crop_id>/status/', crop_views.update_crop_status, name='update_crop_status'),
     path('farm/crops/<int:crop_id>/harvest/', misc_views.harvest_crop, name='harvest_crop'),
 
-    # Harvest history + creation
     path('farm/harvests/', harvest_views.farm_harvests, name='farm_harvests'),
     path('harvests/', harvest_views.farm_harvests, name='farm_harvests_root'),
 ]

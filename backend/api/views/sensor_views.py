@@ -148,9 +148,8 @@ def delete_device(request, device_id):
         device = SensorDevice.objects.get(id=device_id, user=request.user)
         device_name = device.name
         device.delete()
-        return Response({
-            'message': f'Device "{device_name}" deleted successfully'
-        }, status=status.HTTP_204_NO_CONTENT)
+        return Response({'message': f'Device "{device_name}" deleted successfully'}, status=status.HTTP_200_OK)
+
     except SensorDevice.DoesNotExist:
         return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
