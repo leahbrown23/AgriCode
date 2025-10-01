@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from forum.models import Thread
 from .models import CustomUser
+from datetime import datetime
 
 
 from .models import (
@@ -77,10 +78,43 @@ class FarmSerializer(serializers.ModelSerializer):
 
 
 class CropSerializer(serializers.ModelSerializer):
+    expected_end_date = serializers.DateTimeField(write_only=True, required=False)
+
     class Meta:
         model = Crop
-        fields = "__all__"
-        read_only_fields = ["user", "farm"]
+        fields = [
+            "id", "user", "farm", "plot_number", "plot",
+            "crop_type", "crop_variety", "soil_type", "status",
+            "expected_end_date",   # ⬅ extra input field, not saved to Crop
+        ]
+        read_only_fields = ["user"]
+
+    def create(self, validated_data):
+        expected_end_date = validated_data.pop("expected_end_date", None)
+        
+        # Create crop first
+        crop = super().create(validated_data)
+        
+        # Ensure optional fields are handled
+        harvest_data = {
+            "crop": crop,
+            "user": getattr(crop, "user", None),
+            "plot": getattr(crop, "plot", None),
+            "crop_type": crop.crop_type or "Unknown",
+            "crop_variety": crop.crop_variety or "Unknown",
+            "start_date": datetime.now(),
+            "expected_end_date": expected_end_date,
+            "yield_amount": 0,
+            "comments": "",
+        }
+
+        # Only create Harvest if required fields are present
+        if harvest_data["user"] and harvest_data["plot"]:
+            Harvest.objects.create(**harvest_data)
+        else:
+            print("Cannot create harvest — missing user or plot")
+
+        return crop
 
 
 class HarvestSerializer(serializers.ModelSerializer):
@@ -99,6 +133,7 @@ class HarvestSerializer(serializers.ModelSerializer):
             "crop_type",
             "crop_variety",
             "start_date",
+            "expected_end_date",
             "end_date",
             "yield_amount",
             "comments",

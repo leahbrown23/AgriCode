@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # Import views from the new modular structure
 from .views import (
     auth_views, farm_views, plot_views, crop_views,
-    harvest_views, sensor_views, sim_views, reading_views, misc_views
+    harvest_views, sensor_views, sim_views, reading_views, misc_views,
 )
 
 urlpatterns = [
@@ -81,4 +81,6 @@ urlpatterns = [
 
     path('farm/harvests/', harvest_views.farm_harvests, name='farm_harvests'),
     path('harvests/', harvest_views.farm_harvests, name='farm_harvests_root'),
+    path('farm/harvests/<int:crop_id>/update/', harvest_views.update_harvest, name='update_harvest'),
+    
 ]

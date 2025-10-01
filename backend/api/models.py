@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
 from forum.models import Thread
+from datetime import datetime
 # Remove this line: from django.contrib.auth.models import User
 
 
@@ -87,13 +88,18 @@ class Crop(models.Model):
 
 
 class Harvest(models.Model):
+    crop = models.ForeignKey(Crop, on_delete=models.CASCADE, related_name="harvests", null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     plot = models.ForeignKey(Plot, on_delete=models.CASCADE)
     crop_type = models.CharField(max_length=100, default="Unknown")
     crop_variety = models.CharField(max_length=100, default="Unknown")
     start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
-    yield_amount = models.FloatField()
+    expected_end_date = models.DateTimeField(
+        blank=True,
+        null=True,  # allow empty
+        default=datetime(2025, 10, 30, 0, 0, 0))
+    end_date = models.DateTimeField(blank=True, null=True)  # allow later update
+    yield_amount = models.FloatField(default=0)
     comments = models.TextField(default="", blank=True)
 
     def __str__(self):

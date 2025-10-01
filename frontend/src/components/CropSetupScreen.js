@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, User, Menu, Sprout, MapPin, Search, Plus, Edit, AlertTriangle } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Edit, Home, MapPin, Menu, Plus, Search, Sprout, User } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -27,6 +27,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   const [comments, setComments] = useState("")
   const [harvestRecords, setHarvestRecords] = useState([])
   const [harvestLoading, setHarvestLoading] = useState(false)
+  const [expectedEndDate, setExpectedEndDate] = useState("")
 
   const cropTypes = [
     "Maize",
@@ -160,6 +161,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   crop_type: cropType,
   crop_variety: cropVariety,
   soil_type: soilType, 
+  expected_end_date: expectedEndDate,
 })
       setSuccessMessage("Crop added successfully!")
       setSelectedPlotId("")
@@ -202,6 +204,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
         plot: editingCrop.plot,
         crop_type: editingCrop.crop_type,
         crop_variety: editingCrop.crop_variety,
+        expected_end_date: editingCrop.expected_end_date,
       })
       setSuccessMessage("Crop updated successfully!")
       setEditingCrop(null)
@@ -248,6 +251,8 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   }
 
  const handleHarvestDone = async () => {
+  console.log("handleHarvestDone called", harvestCrop, yieldAmount, comments);
+
   if (!yieldAmount) {
     setErrorMessage("Please enter a yield amount");
     setTimeout(() => setErrorMessage(""), 3000);
@@ -255,40 +260,34 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   }
 
   try {
-    // Prefer numeric plot_id coming from the crop object
-    let plotId = harvestCrop?.plot_id;
-
-    // Fallback: derive numeric id from your plots list using plot_number (code)
-    if (!plotId) {
-      const match = userPlots.find(
-        (p) => String(p.plot_id) === String(harvestCrop?.plot_number)
-      );
-      if (match) plotId = match.id;
-    }
-
-    if (!plotId) {
-      setErrorMessage("Could not resolve plot for this crop");
+    if (!harvestCrop?.id) {
+      setErrorMessage("Harvest record not found for this crop");
       setTimeout(() => setErrorMessage(""), 4000);
       return;
     }
 
-    await api.post("/api/farm/harvests/", {
-      plot_id: plotId,
-      crop_type: harvestCrop.crop_type || "Unknown",
-      crop_variety: harvestCrop.crop_variety || "Unknown",
-      start_date: harvestCrop.created_at || new Date().toISOString(),
+    const harvestData = {
       end_date: new Date().toISOString(),
       yield_amount: Number(yieldAmount),
       comments,
-    });
+    };
+
+    // Axios PUT request to update harvest
+    const response = await api.put(
+      `/api/farm/harvests/${harvestCrop.id}/update/`,
+      harvestData
+    );
+
+    console.log("Harvest updated:", response.data);
 
     // Remove crop locally; refresh history
-    setUserCrops((prev) => prev.filter((c) => c.id !== harvestCrop.id));
+    setUserCrops(prev => prev.filter(c => c.id !== harvestCrop.id));
     setShowHarvestModal(false);
     setHarvestCrop(null);
     setYieldAmount("");
     setComments("");
     fetchHarvestRecords();
+
     setSuccessMessage("Harvest recorded and crop removed!");
     setTimeout(() => setSuccessMessage(""), 3000);
   } catch (err) {
@@ -298,6 +297,8 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     setTimeout(() => setErrorMessage(""), 5000);
   }
 };
+
+
 
 
 
@@ -472,6 +473,26 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
                 />
               </div>
             </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Expected Harvest End Date *
+          </label>
+          <div className="relative">
+            <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="datetime-local"
+              name="expected_end_date"
+              value={expectedEndDate}
+              onChange={(e) => setExpectedEndDate(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm 
+                        focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+              required
+            />
+          </div>
+        </div>
+
+
 
             <button
               onClick={handleAddCrop}

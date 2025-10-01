@@ -2,6 +2,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from ..serializers import CropSerializer
+from dateutil.parser import parse as parse_datetime
+from datetime import datetime
 
 from ..models import Crop, Plot, Farm
 
@@ -26,61 +29,79 @@ def farm_crops(request):
                 })
             return Response(rows)
 
+        # POST request: create a new crop
         data = request.data or {}
-        plot_id_raw   = data.get('plot_id') or data.get('plotId') or data.get('plot')
-        plot_code     = data.get('plot_code') or data.get('plotCode') or data.get('plot_number') or data.get('plotNumber')
-        plot_key      = data.get('plot_key') or data.get('plotKey') or data.get('unique_plot_key') or data.get('uniquePlotKey')
 
-        crop_type     = data.get('crop_type') or data.get('cropType')
-        crop_variety  = data.get('crop_variety') or data.get('cropVariety')
-        soil_type     = data.get('soil_type') or data.get('soilType')
-        status_val    = data.get('status', 'planting')
+        # Extract plot info
+        plot_id_raw = data.get('plot_id') or data.get('plotId') or data.get('plot')
+        plot_code   = data.get('plot_code') or data.get('plotCode') or data.get('plot_number') or data.get('plotNumber')
+        plot_key    = data.get('plot_key') or data.get('plotKey') or data.get('unique_plot_key') or data.get('uniquePlotKey')
 
+        # Extract crop info
+        crop_type    = data.get('crop_type') or data.get('cropType')
+        crop_variety = data.get('crop_variety') or data.get('cropVariety')
+        soil_type    = data.get('soil_type') or data.get('soilType')
+        status_val   = data.get('status', 'planting')
+        expected_end_date_raw = data.get('expected_end_date')
+
+        # Validate required fields
         if not crop_type or not crop_variety or not soil_type or not (plot_id_raw or plot_code or plot_key):
             return Response(
                 {'error': 'plot_id/plot_code/plot_key, crop_type, crop_variety and soil_type are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-
+        # Resolve plot
         plot = None
-        if plot_id_raw is not None:
+        if plot_id_raw:
             try:
-                plot_pk = int(plot_id_raw)
-                plot = Plot.objects.get(id=plot_pk, user=request.user)
+                plot = Plot.objects.get(id=int(plot_id_raw), user=request.user)
             except (ValueError, Plot.DoesNotExist):
-                plot = None
-
+                pass
         if plot is None and plot_code:
             try:
                 plot = Plot.objects.get(plot_id=str(plot_code), user=request.user)
             except Plot.DoesNotExist:
                 pass
-
         if plot is None and plot_key:
             try:
                 plot = Plot.objects.get(unique_plot_key=str(plot_key), user=request.user)
             except Plot.DoesNotExist:
                 pass
-
         if plot is None:
             return Response({'error': 'Plot not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Parse expected_end_date
+        expected_end_date = None
+        if expected_end_date_raw:
+            try:
+                expected_end_date = parse_datetime(expected_end_date_raw)
+            except Exception:
+                return Response({'error': 'Invalid expected_end_date format'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find user's farm
         farm = Farm.objects.filter(user=request.user).first()
         if not farm:
             return Response({'error': 'Create a farm first'}, status=status.HTTP_400_BAD_REQUEST)
 
-        crop = Crop.objects.create(
-            user=request.user,
-            farm=farm,
-            plot=plot,
-            plot_number=plot.plot_id,
-            crop_type=crop_type,
-            crop_variety=crop_variety,
-            soil_type=soil_type,
-            status=status_val
-        )
+        # Prepare crop data for serializer
+        crop_data = {
+            'farm': farm.id,
+            'plot': plot.unique_plot_key,  # Use unique_plot_key for ForeignKey
+            'plot_number': plot.plot_id,
+            'crop_type': crop_type,
+            'crop_variety': crop_variety,
+            'soil_type': soil_type,
+            'status': status_val,
+            'expected_end_date': expected_end_date
+        }
 
+        # Serialize and save
+        serializer = CropSerializer(data=crop_data)
+        serializer.is_valid(raise_exception=True)
+        crop = serializer.save(user=request.user, expected_end_date=expected_end_date)
+
+        # Return response
         return Response({
             'id': crop.id,
             'plot_id': plot.id,
