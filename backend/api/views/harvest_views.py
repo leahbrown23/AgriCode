@@ -5,7 +5,7 @@ from rest_framework import status
 from django.utils.dateparse import parse_datetime
 from ..serializers import HarvestSerializer
 
-from ..models import Harvest, Plot
+from ..models import Harvest, Plot, Crop
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
@@ -20,6 +20,12 @@ def update_harvest(request, crop_id):
     harvest.yield_amount = data.get("yield_amount", harvest.yield_amount)
     harvest.comments = data.get("comments", harvest.comments)
     harvest.save()
+
+    try:
+        crop = Crop.objects.get(id=crop_id, user=request.user)
+        crop.delete()
+    except Crop.DoesNotExist:
+        pass  # Crop already deleted, no action needed
 
     serializer = HarvestSerializer(harvest)
     return Response(serializer.data)

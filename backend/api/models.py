@@ -88,7 +88,7 @@ class Crop(models.Model):
 
 
 class Harvest(models.Model):
-    crop = models.ForeignKey(Crop, on_delete=models.CASCADE, related_name="harvests", null=True, blank=True)
+    crop = models.ForeignKey(Crop, on_delete=models.SET_NULL, related_name="harvests", null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     plot = models.ForeignKey(Plot, on_delete=models.CASCADE)
     crop_type = models.CharField(max_length=100, default="Unknown")
