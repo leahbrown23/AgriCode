@@ -17,37 +17,33 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
           lfs: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Install OIDC Client from Core Package
+        run: npm install @actions/core@1.6.0 @actions/http-client
+
+      - name: Get Id Token
+        uses: actions/github-script@v6
+        id: idtoken
         with:
-          node-version: '18'
+          script: |
+            const coredemo = require('@actions/core')
+            return await coredemo.getIDToken()
+          result-encoding: string
 
-      - name: Install Dependencies
-        run: |
-          cd frontend
-          npm install
-
-      - name: Build App
-        run: |
-          cd frontend
-          npm run build
-
-      - name: Deploy to Azure Static Web Apps
+      - name: Build And Deploy
+        id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ORANGE_STONE_01EC1C81E }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "frontend"            # path to your frontend folder
-          output_location: "dist"             # if you're using Vite or Vue CLI → 'dist' is correct!
-          api_location: ""                    # leave empty if no API
+          app_location: "frontend"
+          api_location: ""  # leave blank since you're not using Azure Functions
+          output_location: "frontend/build"
           github_id_token: ${{ steps.idtoken.outputs.result }}
 
   close_pull_request_job:
@@ -56,6 +52,7 @@ jobs:
     name: Close Pull Request Job
     steps:
       - name: Close Pull Request
+        id: closepullrequest
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: "close"
