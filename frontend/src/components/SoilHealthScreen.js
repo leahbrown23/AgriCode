@@ -238,7 +238,7 @@ export default function SoilHealthScreen({
   /* ---------------- live WS updates ---------------- */
   useEffect(() => {
     if (!selectedPlot) return
-    const base = process.env.NEXT_PUBLIC_WS_BASE || "ws://localhost:8000"
+    const base = process.env.NEXT_PUBLIC_WS_BASE || "ws://agricode-wsa2.onrender.com"
     const ws = new WebSocket(`${base}/ws/soil/${encodeURIComponent(selectedPlot)}/`)
 
     ws.onmessage = (e) => {

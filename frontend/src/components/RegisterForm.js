@@ -23,7 +23,7 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
         phone_number: phone
       }
 
-      const res = await fetch("http://localhost:8000/api/register/", {
+      const res = await fetch("https://agricode-wsa2.onrender.com/api/register/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -45,7 +45,7 @@ export default function RegisterForm({ onRegisterClick, onBackClick }) {
         throw new Error(data.detail || data.message || JSON.stringify(data) || "Registration failed")
       }
 
-      const loginRes = await fetch("http://localhost:8000/api/login/", {
+      const loginRes = await fetch("https://agricode-wsa2.onrender.com/api/login/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
