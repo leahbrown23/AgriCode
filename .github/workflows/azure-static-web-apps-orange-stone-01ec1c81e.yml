@@ -1,43 +1,29 @@
-name: Azure Static Web Apps CI/CD
+build_and_deploy_job:
+  runs-on: ubuntu-latest
+  name: Build and Deploy Job
+  steps:
+    - uses: actions/checkout@v3
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x' # Match your local version
 
-jobs:
-  build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
-    runs-on: ubuntu-latest
-    name: Build and Deploy Job
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm install
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+    - name: Build app
+      run: |
+        cd frontend
+        npm run build
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build project
-        run: npm run build
-
-      - name: Deploy to Azure Static Web Apps
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ORANGE_STONE_01EC1C81E }}
-          action: "upload"
-          app_location: "/"            # root folder (not /frontend)
-          api_location: ""
-          output_location: "build"     # this is the default React build folder
-
-
+    - name: Deploy to Azure Static Web Apps
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: "upload"
+        app_location: "frontend" # <--- this tells it where the built app is
+        output_location: "build"
