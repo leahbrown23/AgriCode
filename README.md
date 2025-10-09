@@ -15,3 +15,4 @@ View Chats in a thread
 Create a thread
 Write a message in a thread
 Filter threads
+xox
