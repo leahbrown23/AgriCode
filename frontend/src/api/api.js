@@ -1,8 +1,10 @@
 import axios from "axios"
+const API_BASE_URL = process.env.REACT_APP_API_URL || "https://agricode-wsa2.onrender.com";
+
 
 const api = axios.create({
-  baseURL: "http://localhost:8000",
-})
+  baseURL: API_BASE_URL,
+});
 
 // === Token Refresh with Queue Support ===
 let isRefreshing = false
