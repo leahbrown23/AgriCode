@@ -12,7 +12,7 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 SECRET_KEY = 'django-insecure-j+$(v4)$icyo51n)n@i*5dz4*ujvri!-esrsz7olmc$eponr)&'
 DEBUG = True
-ALLOWED_HOSTS = ['agricode-1.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['agricode-wsa2.onrender.com', 'localhost', '127.0.0.1']
 
 
 AUTH_USER_MODEL = 'api.CustomUser'
