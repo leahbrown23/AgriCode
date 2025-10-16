@@ -49,10 +49,10 @@ MIDDLEWARE = [
 
 # ---- CORS/CSRF for SPA on localhost:3000 ----
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    "http://localhost:3000", "https://agricode-1.onrender.com",
 ]
 CORS_ALLOW_CREDENTIALS = True  # allow cookies if you set them
-CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]
+CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "https://agricode-1.onrender.com"]
 
 # In dev we keep SameSite lax & not secure
 SESSION_COOKIE_SAMESITE = "Lax"
