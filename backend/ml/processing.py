@@ -12,12 +12,14 @@ optimal_ranges = {
     "rice": {"N": (100, 200), "P": (20, 70), "K": (65, 120), "pH": (5.5, 6.5)},
 }
 
+
 def preprocess_soil_data(df: pd.DataFrame, save_path: str = None, mapping_path: str = None):
     """
-    Preprocess soil data for crop recommendation:
+    Preprocess soil data or yield dataset:
     - Encode crop and soil type
     - Compute nutrient deviations from optimal ranges
     - One-hot encode soil type
+    - Keep relevant features only
     """
 
     # Rename columns to standard names
@@ -26,11 +28,16 @@ def preprocess_soil_data(df: pd.DataFrame, save_path: str = None, mapping_path: 
         "Phosphorus": "P",
         "Potassium": "K",
         "pH_Value": "pH",
-        "Crop": "crop",  # update if your column name is different
+        "Crop": "crop",  # standardize crop name
     })
 
     # Lowercase crop names
     df["crop"] = df["crop"].str.lower()
+
+    # Drop unwanted columns if present
+    for col in ["Area", "Production", "Variety"]:
+        if col in df.columns:
+            df = df.drop(columns=[col])
 
     # Encode crop
     le_crop = LabelEncoder()
@@ -43,8 +50,8 @@ def preprocess_soil_data(df: pd.DataFrame, save_path: str = None, mapping_path: 
     # Feature engineering: nutrient deviations from optimal range per crop
     for nutrient in ["N", "P", "K", "pH"]:
         def dev(row):
-            crop = le_crop.inverse_transform([row["crop_encoded"]])[0]
-            min_val, max_val = optimal_ranges[crop][nutrient]
+            crop_name = le_crop.inverse_transform([row["crop_encoded"]])[0]
+            min_val, max_val = optimal_ranges[crop_name][nutrient]
             mean_val = (min_val + max_val) / 2
             range_val = max_val - min_val
             if range_val == 0:
@@ -83,8 +90,8 @@ if __name__ == "__main__":
 
     os.makedirs("data", exist_ok=True)
 
-    RAW_PATH = "data/test_data.xlsx"
-    PROCESSED_PATH = "data/processed_soil.csv"
+    RAW_PATH = "data/yield.xlsx"  # can be soil or yield dataset
+    PROCESSED_PATH = "data/processed_data.csv"
     MAPPING_PATH = "data/crop_mapping.json"
 
     df = pd.read_excel(RAW_PATH)

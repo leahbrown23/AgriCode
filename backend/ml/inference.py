@@ -4,33 +4,40 @@ import json
 import os
 import numpy as np
 
-# get the folder this file is in
+# Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-model_path = os.path.join(MODEL_DIR, "crop_rf_model.pkl")
+
+# Load crop prediction model
+crop_model_path = os.path.join(MODEL_DIR, "crop_rf_model.pkl")
+clf = joblib.load(crop_model_path)
+
+# Load feature columns for crop model
 feature_cols_path = os.path.join(MODEL_DIR, "feature_columns.json")
-
-#load model
-clf = joblib.load(model_path)
-
-# Load crop mapping
-with open(os.path.join(MODEL_DIR, "feature_columns.json"), "r") as f:
+with open(feature_cols_path, "r") as f:
     feature_cols = json.load(f)
 
+# Load crop mapping
 with open(os.path.join(DATA_DIR, "crop_mapping.json"), "r") as f:
     crop_mapping = json.load(f)
     crop_reverse_mapping = crop_mapping["crop"]["reverse"]
 
-# Load soil type encoder mapping
+# Load yield prediction model
+yield_model_path = os.path.join(MODEL_DIR, "yield_rf_model.pkl")
+yield_model = joblib.load(yield_model_path)
+
+# Load yield feature columns
+yield_feature_cols_path = os.path.join(MODEL_DIR, "yield_feature_columns.json")
+with open(yield_feature_cols_path, "r") as f:
+    yield_feature_cols = json.load(f)
+
+# Soil type encoder
 soil_type_mapping = crop_mapping["soil_type"]["forward"]
 
 def compute_nutrient_devs(input_df):
-    """
-    Compute nutrient deviations from optimal ranges for each crop in input_df.
-    """
+    """Compute nutrient deviations from optimal ranges for crop compatibility."""
     optimal_ranges = {
         "wheat": {"N": (80, 200), "P": (30, 80), "K": (40, 120), "pH": (6.0, 6.8)},
         "tomato": {"N": (100, 250), "P": (50, 120), "K": (80, 250), "pH": (5.5, 6.8)},
@@ -40,38 +47,23 @@ def compute_nutrient_devs(input_df):
         "rice": {"N": (100, 200), "P": (20, 70), "K": (65, 120), "pH": (5.5, 6.5)},
     }
 
-    # Compute deviations per nutrient per crop
     for nutrient in ["N", "P", "K", "pH"]:
-        min_val = input_df[nutrient].values[0]
-        # We assume deviation is relative to mean of each crop's optimal range
         mean_vals = {crop: (r[nutrient][0] + r[nutrient][1]) / 2 for crop, r in optimal_ranges.items()}
-        # For simplicity, compute deviation against overall mean
         overall_mean = sum(mean_vals.values()) / len(mean_vals)
-        input_df[f"{nutrient}_dev"] = abs(input_df[nutrient] - overall_mean) / (max(input_df[nutrient]) - min(input_df[nutrient]) + 1e-5)
+        input_df[f"{nutrient}_dev"] = abs(input_df[nutrient] - overall_mean) / (input_df[nutrient].max() - input_df[nutrient].min() + 1e-5)
     return input_df
 
 def preprocess_input(data: dict):
-    """
-    Convert input dict to dataframe with same features as training.
-    """
+    """Preprocess input for crop model prediction."""
     df = pd.DataFrame([data])
-
-    # One-hot encode Soil_Type
     for soil in soil_type_mapping.keys():
         df[f"soil_{soil}"] = 1 if data["Soil_Type"] == soil else 0
-
-    # Compute nutrient deviations
     df = compute_nutrient_devs(df)
-
-    # Keep only the feature columns used in training
     df = df.reindex(columns=feature_cols, fill_value=0)
     return df
 
 def get_crop_compatibility_score(crop_name: str, input_data: dict):
-    """
-    Calculate compatibility score for a specific crop based on soil conditions.
-    Used to analyze both ML recommendation and current crop.
-    """
+    """Calculate compatibility score for a specific crop based on soil conditions."""
     optimal_ranges = {
         "wheat": {"N": (80, 200), "P": (30, 80), "K": (40, 120), "pH": (6.0, 6.8)},
         "tomato": {"N": (100, 250), "P": (50, 120), "K": (80, 250), "pH": (5.5, 6.8)},
@@ -80,73 +72,89 @@ def get_crop_compatibility_score(crop_name: str, input_data: dict):
         "potato": {"N": (100, 300), "P": (50, 120), "K": (150, 250), "pH": (5.5, 6.5)},
         "rice": {"N": (100, 200), "P": (20, 70), "K": (65, 120), "pH": (5.5, 6.5)},
     }
-    
     if crop_name not in optimal_ranges:
-        return 50  # Default score for unknown crops
-    
+        return 50
     ranges = optimal_ranges[crop_name]
-    score = 0
-    total_metrics = 0
-    
+    score, total = 0, 0
     for nutrient, (min_val, max_val) in ranges.items():
-        current_value = input_data.get(nutrient, input_data.get(nutrient.replace("pH", "pH_level")))
-        if current_value is not None:
-            total_metrics += 1
-            if min_val <= current_value <= max_val:
+        val = input_data.get(nutrient, input_data.get(nutrient.replace("pH","pH_level")))
+        if val is not None:
+            total += 1
+            if min_val <= val <= max_val:
                 score += 100
             else:
-                # Calculate partial score based on distance from optimal range
                 mid = (min_val + max_val) / 2
                 range_size = max_val - min_val
-                distance = abs(current_value - mid)
+                distance = abs(val - mid)
                 normalized_distance = distance / (range_size / 2)
-                partial_score = max(0, 100 - (normalized_distance * 40))
-                score += partial_score
-    
-    if total_metrics > 0:
-        return round(score / total_metrics, 1)
-    return 50
+                score += max(0, 100 - (normalized_distance * 40))
+    return round(score / total, 1) if total > 0 else 50
 
 def predict_crop(input_data: dict):
-    """
-    Return single ML crop recommendation with confidence score.
-    Pure ML prediction - no multiple recommendations.
-    """
+    """Return single ML crop recommendation with confidence score."""
     try:
-        # Preprocess input for ML model
         df_input = preprocess_input(input_data)
-        
-        # Get ML prediction and confidence
         pred_encoded = clf.predict(df_input)[0]
         pred_probabilities = clf.predict_proba(df_input)[0]
-        
-        # Get the predicted crop name
         predicted_crop = crop_reverse_mapping[str(pred_encoded)]
-        
-        # Get confidence score (probability of the predicted class)
         max_probability = max(pred_probabilities)
-        confidence_score = round(max_probability * 100, 1)
-        
-        # Get compatibility score for soil conditions
         compatibility_score = get_crop_compatibility_score(predicted_crop, input_data)
-        
         return {
             "crop": predicted_crop,
-            "ml_confidence": confidence_score,
+            "ml_confidence": round(max_probability*100,1),
             "compatibility_score": compatibility_score,
             "ml_probability": max_probability
         }
-        
     except Exception as e:
         print(f"ML model error: {e}")
         return None
 
+def predict_yield_for_crop(input_data: dict, crop_name: str):
+    """Return predicted yield for a specific crop."""
+    df = pd.DataFrame([input_data])
+    if "crop_encoded" in yield_feature_cols:
+        # Encode crop
+        reverse_mapping = {v: k for k, v in crop_reverse_mapping.items()}
+        if crop_name not in reverse_mapping:
+            raise ValueError(f"Crop '{crop_name}' not found in crop mapping.")
+        encoded = int(reverse_mapping[crop_name])
+        df["crop_encoded"] = encoded
+    df = df.reindex(columns=yield_feature_cols, fill_value=0)
+    predicted_yield = yield_model.predict(df)[0]
+    return round(float(predicted_yield),2)
+
+def recommend_and_compare(input_data: dict):
+    """Return recommendation including crop and yield comparison for API."""
+    # Recommended crop
+    crop_rec = predict_crop(input_data)
+    recommended_crop = crop_rec["crop"]
+    
+    # Yield for recommended crop
+    predicted_yield_rec = predict_yield_for_crop(input_data, recommended_crop)
+    
+    # Yield for current crop if given
+    current_crop = input_data.get("Current_Crop", None)
+    predicted_yield_current = None
+    if current_crop:
+        predicted_yield_current = predict_yield_for_crop(input_data, current_crop)
+    
+    return {
+        "crop_recommendation": crop_rec,
+        "predicted_yield_recommended_crop": predicted_yield_rec,
+        "predicted_yield_current_crop": predicted_yield_current,
+        "comparison": (
+            None if predicted_yield_current is None
+            else "Higher" if predicted_yield_rec > predicted_yield_current else "Lower"
+        )
+    }
+
 # Example usage
 if __name__ == "__main__":
-    sample = {
+    sample_input = {
         "N": 120, "P": 40, "K": 60, "pH": 6.2,
         "Temperature": 28, "Humidity": 65, "Rainfall": 180,
-        "Soil_Type": "Loamy"
+        "Soil_Type": "Loamy",
+        "Current_Crop": "maize"
     }
-    recommendation = predict_crop(sample)
-    print("ML recommendation:", recommendation)
+    result = recommend_and_compare(sample_input)
+    print(json.dumps(result, indent=4))

@@ -1,0 +1,21 @@
+[
+    "N",
+    "P",
+    "K",
+    "pH",
+    "Temperature",
+    "Humidity",
+    "Rainfall",
+    "Fertilizer",
+    "Pesticide",
+    "crop_encoded",
+    "N_P_ratio",
+    "K_N_ratio",
+    "pH_squared",
+    "soil_Clay",
+    "soil_Loamy",
+    "soil_Peaty",
+    "soil_Saline",
+    "soil_Sandy",
+    "soil_Silt"
+]
