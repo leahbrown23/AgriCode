@@ -5,16 +5,14 @@
             "potato": 1,
             "rice": 2,
             "sugarcane": 3,
-            "tomato": 4,
-            "wheat": 5
+            "wheat": 4
         },
         "reverse": {
             "0": "maize",
             "1": "potato",
             "2": "rice",
             "3": "sugarcane",
-            "4": "tomato",
-            "5": "wheat"
+            "4": "wheat"
         }
     },
     "soil_type": {

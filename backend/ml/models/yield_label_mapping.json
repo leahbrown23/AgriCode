@@ -1,0 +1,72 @@
+{
+  "crop": {
+    "forward": {
+      "Maize": 0,
+      "Potato": 1,
+      "Rice": 2,
+      "Sugarcane": 3,
+      "Wheat": 4
+    },
+    "reverse": {
+      "0": "Maize",
+      "1": "Potato",
+      "2": "Rice",
+      "3": "Sugarcane",
+      "4": "Wheat"
+    }
+  },
+  "soil_type": {
+    "forward": {
+      "Clay": 0,
+      "Loamy": 1,
+      "Peaty": 2,
+      "Saline": 3,
+      "Sandy": 4,
+      "Silt": 5
+    },
+    "reverse": {
+      "0": "Clay",
+      "1": "Loamy",
+      "2": "Peaty",
+      "3": "Saline",
+      "4": "Sandy",
+      "5": "Silt"
+    }
+  },
+  "variety": {
+    "forward": {
+      "Arborio": 0,
+      "Basmati": 1,
+      "Co 0238": 2,
+      "Co 86032": 3,
+      "Co 99004": 4,
+      "Dent": 5,
+      "Durum": 6,
+      "Flint": 7,
+      "Hard Red": 8,
+      "Jasmine": 9,
+      "Red": 10,
+      "Russet": 11,
+      "Soft Red": 12,
+      "Sweet": 13,
+      "Yukon Gold": 14
+    },
+    "reverse": {
+      "0": "Arborio",
+      "1": "Basmati",
+      "2": "Co 0238",
+      "3": "Co 86032",
+      "4": "Co 99004",
+      "5": "Dent",
+      "6": "Durum",
+      "7": "Flint",
+      "8": "Hard Red",
+      "9": "Jasmine",
+      "10": "Red",
+      "11": "Russet",
+      "12": "Soft Red",
+      "13": "Sweet",
+      "14": "Yukon Gold"
+    }
+  }
+}
