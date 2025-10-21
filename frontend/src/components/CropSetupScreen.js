@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, User, Menu, Sprout, MapPin, Search, Plus, Edit, AlertTriangle } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Edit, Home, MapPin, Menu, Plus, Search, Sprout, User } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
@@ -8,6 +8,7 @@ import LoadingSpinner from "./LoadingSpinner"
 export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileClick, onMenuClick }) {
   const [selectedPlotId, setSelectedPlotId] = useState("")
   const [cropType, setCropType] = useState("")
+  const [soilType, setSoilType] = useState("")
   const [cropVariety, setCropVariety] = useState("")
   const [user, setUser] = useState(null)
   const [userCrops, setUserCrops] = useState([])
@@ -26,21 +27,24 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   const [comments, setComments] = useState("")
   const [harvestRecords, setHarvestRecords] = useState([])
   const [harvestLoading, setHarvestLoading] = useState(false)
+  const [expectedEndDate, setExpectedEndDate] = useState("")
 
   const cropTypes = [
-    "Barley",
-    "Cabbage",
-    "Carrot",
-    "Groundnut",
     "Maize",
-    "Onion",
     "Potato",
     "Rice",
-    "Spinach",
-    "Soybean",
+    "Sugarcane",
     "Tomato",
     "Wheat",
-    "Other",
+  ]
+
+  const soil_type = [
+    "Clay",
+    "Loamy",
+    "Peaty",
+    "Saline",
+    "Sandy",
+    "Silt",
   ]
 
   useEffect(() => {
@@ -103,21 +107,19 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   }
 
   const fetchHarvestRecords = async () => {
-  setHarvestLoading(true)
+  setHarvestLoading(true);
   try {
-    const res = await api.get("/api/harvests/")
-    setHarvestRecords(res.data)
+    const res = await api.get("/api/farm/harvests/");  // <-- not /api/harvests/
+    setHarvestRecords(res.data);
   } catch (err) {
-    console.error("Failed to fetch harvest records:", err)
+    console.error("Failed to fetch harvest records:", err);
   } finally {
-    setHarvestLoading(false)
+    setHarvestLoading(false);
   }
-}
+};
 
-  const getPlotDisplayName = (uniqueId) => {
-    const plot = userPlots.find((p) => p.unique_plot_id === uniqueId)
-    return plot ? `Plot ${plot.plot_id} - ${plot.location}` : uniqueId
-  }
+
+  
 
   const getRawPlotId = (uniqueKey) => {
     if (!uniqueKey || typeof uniqueKey !== "string") return ""
@@ -154,11 +156,13 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
     }
     try {
       await api.post("/api/farm/crops/", {
-        plot_number: plotId,
-        plot: selectedPlotId,
-        crop_type: cropType,
-        crop_variety: cropVariety,
-      })
+  plot_number: plotId,
+  plot: selectedPlotId,
+  crop_type: cropType,
+  crop_variety: cropVariety,
+  soil_type: soilType, 
+  expected_end_date: expectedEndDate,
+})
       setSuccessMessage("Crop added successfully!")
       setSelectedPlotId("")
       setCropType("")
@@ -200,6 +204,7 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
         plot: editingCrop.plot,
         crop_type: editingCrop.crop_type,
         crop_variety: editingCrop.crop_variety,
+        expected_end_date: editingCrop.expected_end_date,
       })
       setSuccessMessage("Crop updated successfully!")
       setEditingCrop(null)
@@ -246,37 +251,55 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   }
 
  const handleHarvestDone = async () => {
+  console.log("handleHarvestDone called", harvestCrop, yieldAmount, comments);
+
   if (!yieldAmount) {
     setErrorMessage("Please enter a yield amount");
     setTimeout(() => setErrorMessage(""), 3000);
     return;
   }
+
   try {
-    await api.post(`/api/farm/crops/${harvestCrop.id}/harvest/`, {
-      start_date: harvestCrop.created_at || new Date().toISOString(),
+    if (!harvestCrop?.id) {
+      setErrorMessage("Harvest record not found for this crop");
+      setTimeout(() => setErrorMessage(""), 4000);
+      return;
+    }
+
+    const harvestData = {
       end_date: new Date().toISOString(),
-      yield_amount: yieldAmount,
+      yield_amount: Number(yieldAmount),
       comments,
-    });
+    };
 
-    // Remove crop from frontend state
-    setUserCrops(prev => prev.filter(crop => crop.id !== harvestCrop.id));
+    // Axios PUT request to update harvest
+    const response = await api.put(
+      `/api/farm/harvests/${harvestCrop.id}/update/`,
+      harvestData
+    );
 
-    // Close modal and reset form
+    console.log("Harvest updated:", response.data);
+
+    // Remove crop locally; refresh history
+    setUserCrops(prev => prev.filter(c => c.id !== harvestCrop.id));
     setShowHarvestModal(false);
     setHarvestCrop(null);
     setYieldAmount("");
     setComments("");
-
-    // Refresh harvest records and show success
     fetchHarvestRecords();
+
     setSuccessMessage("Harvest recorded and crop removed!");
     setTimeout(() => setSuccessMessage(""), 3000);
   } catch (err) {
-    setErrorMessage("Failed to record harvest: " + (err.response?.data?.detail || err.message));
+    setErrorMessage(
+      "Failed to record harvest: " + (err.response?.data?.error || err.message)
+    );
     setTimeout(() => setErrorMessage(""), 5000);
   }
 };
+
+
+
 
 
   const handleStatusChange = async (cropId, status) => {
@@ -418,6 +441,26 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
             </div>
 
             <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">Soil Type *</label>
+  <div className="relative">
+    <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <select
+      value={soilType}
+      onChange={(e) => setSoilType(e.target.value)}
+      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
+    >
+      <option value="" disabled>Select Soil Type</option>
+      {soil_type.map((type) => (
+        <option key={type} value={type}>
+          {type}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
+
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Crop Variety *</label>
               <div className="relative">
                 <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -430,6 +473,26 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
                 />
               </div>
             </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Expected Harvest End Date *
+          </label>
+          <div className="relative">
+            <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="datetime-local"
+              name="expected_end_date"
+              value={expectedEndDate}
+              onChange={(e) => setExpectedEndDate(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm 
+                        focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+              required
+            />
+          </div>
+        </div>
+
+
 
             <button
               onClick={handleAddCrop}

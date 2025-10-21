@@ -1,9 +1,13 @@
 # Ignore Python/Django files
 backend/venv/
+backend/.venv/
 backend/__pycache__/
 backend/db.sqlite3
 backend/*.pyc
 backend/.env
+
+
+backend/ml/models/*.pkl
 
 # Ignore Node.js/React files
 frontend/node_modules/
@@ -14,8 +18,14 @@ frontend/.env
 .DS_Store
 *.log
 
-venv
-
-node_modules
-
+# General ignore patterns
+.venv/
+venv/
+.venv/
+node_modules/
 .env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+

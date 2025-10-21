@@ -1,8 +1,9 @@
 "use client"
 
-import { ArrowLeft, Filter, Star, StarOff } from "lucide-react"
+import { ArrowLeft, Filter, Plus, Send, Star, StarOff, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "../api/api"
+import { ErrorAlertModal, SuccessAlertModal } from "./Alert"
 import LoadingSpinner from "./LoadingSpinner"
 
 export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
@@ -15,12 +16,15 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [newThreadTitle, setNewThreadTitle] = useState("")
   const [newThreadMessage, setNewThreadMessage] = useState("")
   const [newThreadTopic, setNewThreadTopic] = useState("")
-  
-  const [loading, setLoading] = useState(true)
-  
+
   const [favoriteThreadIds, setFavoriteThreadIds] = useState([])
   const [user, setUser] = useState(null)
   const [favoriteRecords, setFavoriteRecords] = useState({})
+
+const [showErrorModal, setShowErrorModal] = useState(false)
+const [showSuccessModal, setShowSuccessModal] = useState(false)
+const [alertMessage, setAlertMessage] = useState("")
+
 
   const filterOptions = [
     { id: "all", label: "All Threads" },
@@ -39,10 +43,10 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
 
         const favRes = await api.get("/api/favorites/")
         const favs = favRes.data
-        setFavoriteThreadIds(favs.map(fav => fav.thread_id))
+        setFavoriteThreadIds(favs.map((fav) => fav.thread_id))
 
         const favMap = {}
-        favs.forEach(fav => {
+        favs.forEach((fav) => {
           favMap[fav.thread_id] = fav.id
         })
         setFavoriteRecords(favMap)
@@ -74,14 +78,16 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     if (topics.length === 0) return
 
     async function fetchAllThreads() {
-      setLoading(true)
-      for (const topic of topics) {
-        await fetchThreadsForTopic(topic.id, activeFilter)
+      try {
+        await Promise.all(
+          topics.map((topic) => fetchThreadsForTopic(topic.id, activeFilter))
+        )
+      } catch (e) {
+        // errors handled inside fetchThreadsForTopic; swallow here
       }
-      setLoading(false)
     }
     fetchAllThreads()
-  }, [topics, activeFilter]) // Removed favoriteThreadIds dependency
+  }, [topics, activeFilter])
 
   const fetchThreadsForTopic = async (topicId, sort = "all") => {
     let url = `/forum/threads/?topic=${topicId}`
@@ -119,7 +125,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
 
       try {
         await api.delete(`/api/favorites/${favoriteId}/`)
-        
+
         // Update local state immediately
         setFavoriteThreadIds((ids) => ids.filter((id) => id !== threadId))
         setFavoriteRecords((recs) => {
@@ -132,8 +138,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
         if (activeFilter === "favorites") {
           setThreadsByTopic((prev) => {
             const updated = { ...prev }
-            Object.keys(updated).forEach(topicId => {
-              updated[topicId] = updated[topicId].filter(thread => thread.id !== threadId)
+            Object.keys(updated).forEach((topicId) => {
+              updated[topicId] = updated[topicId].filter((thread) => thread.id !== threadId)
             })
             return updated
           })
@@ -146,7 +152,7 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
       try {
         const res = await api.post("/api/favorites/add/", { thread_id: threadId })
         const newFavorite = res.data
-        
+
         // Update local state immediately
         setFavoriteThreadIds((ids) => [...ids, threadId])
         setFavoriteRecords((recs) => ({ ...recs, [threadId]: newFavorite.id }))
@@ -161,181 +167,213 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   }
 
   const handleCreateThread = async () => {
+    if (!newThreadTitle.trim() || !newThreadMessage.trim() || !newThreadTopic) {
+      setAlertMessage("Please fill in all fields.")
+      setShowErrorModal(true)
+      return
+    }
+
     try {
       await api.post("/forum/threads/", {
         topic: newThreadTopic,
         title: newThreadTitle,
         message: newThreadMessage,
       })
-      alert("Thread created successfully!")
+      setAlertMessage("Thread created successfully!")
       setShowCreateForm(false)
       setNewThreadTitle("")
       setNewThreadMessage("")
       setNewThreadTopic("")
       // Re-fetch only the specific topic where thread was created
-      fetchThreadsForTopic(newThreadTopic, activeFilter)
+      if (newThreadTopic) {
+        fetchThreadsForTopic(newThreadTopic, activeFilter)
+      }
     } catch (err) {
       console.error("Error creating thread:", err)
-      alert("Failed to create thread.")
+      setAlertMessage("Failed to create thread. Please try again later.")
+      setShowErrorModal(true)
     }
   }
 
-  if (loading) return <LoadingSpinner />
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="sticky top-0 z-10 p-4 bg-white flex items-center">
-        <button onClick={onBackClick} className="mr-2">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="text-lg font-semibold flex-1 text-center">Discussion Forum</h1>
+    <div className="flex flex-col h-full pb-16 bg-[#d1e6b2]">
+      {/* Header */}
+      <div className="p-5 bg-white rounded-b-2xl shadow">
+        <div className="flex items-center">
+          <button onClick={onBackClick} className="mr-3">
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </button>
+          <h1 className="text-xl font-bold text-center text-gray-800 flex-1">Discussion Forum</h1>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#d1e6b2]">
-        <div className="p-4 space-y-4 pb-24">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Community</h2>
-            <div className="relative">
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-5 space-y-4">
+          {/* Filter and Create Button Section */}
+          <div className="flex justify-between items-center gap-3">
+            <div className="relative flex-1">
               <button
-                className="flex items-center space-x-1 bg-white p-2 rounded-lg shadow"
+                className="flex items-center justify-center space-x-2 bg-white p-3 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 w-full"
                 onClick={() => setShowFilterMenu(!showFilterMenu)}
               >
-                <Filter className="h-4 w-4" />
-                <span className="text-sm">
-                  Filter: {filterOptions.find((opt) => opt.id === activeFilter)?.label}
+                <Filter className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-semibold text-gray-800">
+                  {filterOptions.find((opt) => opt.id === activeFilter)?.label}
                 </span>
               </button>
               {showFilterMenu && (
-                <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-lg z-10">
-                  <div className="py-1">
-                    {filterOptions.map((option) => (
-                      <button
-                        key={option.id}
-                        className={`block px-4 py-2 text-sm w-full text-left ${
-                          activeFilter === option.id ? "bg-gray-100" : ""
-                        }`}
-                        onClick={() => {
-                          setActiveFilter(option.id)
-                          setShowFilterMenu(false)
-                        }}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-lg z-10 overflow-hidden">
+                  {filterOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      className={`block px-4 py-3 text-sm w-full text-left hover:bg-gray-50 transition-colors ${
+                        activeFilter === option.id ? "bg-green-50 text-green-600 font-semibold" : "text-gray-800"
+                      }`}
+                      onClick={() => {
+                        setActiveFilter(option.id)
+                        setShowFilterMenu(false)
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
+            
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center justify-center p-3 bg-green-600 rounded-2xl shadow-md hover:shadow-lg hover:bg-green-700 transition-all duration-200"
+            >
+              <Plus className="h-5 w-5 text-white" />
+            </button>
           </div>
 
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded mt-3 hover:bg-green-700"
-          >
-            + Create New Thread
-          </button>
-
+          {/* Create Thread Form */}
           {showCreateForm && (
-            <div className="bg-white p-4 mt-4 rounded shadow">
-              <h3 className="text-md font-semibold mb-2">Start a New Thread</h3>
-              <select
-                className="w-full p-2 border rounded mb-2"
-                value={newThreadTopic}
-                onChange={(e) => setNewThreadTopic(e.target.value)}
-              >
-                <option value="">Select Topic</option>
-                {topics.map((topic) => (
-                  <option key={topic.id} value={topic.id}>
-                    {topic.title}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                placeholder="Thread title"
-                className="w-full p-2 border rounded mb-2"
-                value={newThreadTitle}
-                onChange={(e) => setNewThreadTitle(e.target.value)}
-              />
-              <textarea
-                placeholder="Description or message..."
-                className="w-full p-2 border rounded mb-2"
-                value={newThreadMessage}
-                onChange={(e) => setNewThreadMessage(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCreateThread}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Submit
-                </button>
+            <div className="bg-white p-5 rounded-2xl shadow-md">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-800">Start a New Thread</h3>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="text-sm text-gray-600 underline"
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  Cancel
+                  <X className="h-5 w-5 text-gray-600" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Topic</label>
+                  <select
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={newThreadTopic}
+                    onChange={(e) => setNewThreadTopic(e.target.value)}
+                  >
+                    <option value="">Select Topic</option>
+                    {topics.map((topic) => (
+                      <option key={topic.id} value={topic.id}>
+                        {topic.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Title</label>
+                  <input
+                    type="text"
+                    placeholder="Enter thread title..."
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={newThreadTitle}
+                    onChange={(e) => setNewThreadTitle(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Message</label>
+                  <textarea
+                    placeholder="Share your thoughts or ask a question..."
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent h-24 resize-none"
+                    value={newThreadMessage}
+                    onChange={(e) => setNewThreadMessage(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  onClick={handleCreateThread}
+                  className="flex items-center justify-center space-x-2 w-full bg-green-600 text-white p-3 rounded-xl hover:bg-green-700 transition-all duration-200 font-semibold"
+                >
+                  <Send className="h-4 w-4" />
+                  <span>Create Thread</span>
                 </button>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4">
-            {topics.map((topic, index) => (
-              <div
-                key={topic.id}
-                className="rounded-lg shadow overflow-hidden"
-                style={{ backgroundColor: ["#2a9d4a", "#3a8fb7", "#d4a017"][index % 3] }}
-              >
-                <div className="p-3 text-white font-semibold">
-                  <h3 className="text-lg">Topic: {topic.title}</h3>
+          {/* Topics and Threads */}
+          <div className="space-y-4">
+            {topics.map((topic) => (
+              <div key={topic.id} className="bg-white rounded-2xl shadow-md overflow-hidden">
+                <div className="p-4 bg-green-600">
+                  <h3 className="text-lg font-bold text-white">{topic.title}</h3>
                 </div>
-                <div className="bg-white p-2 space-y-2">
+                
+                <div className="p-4">
                   {topicLoading[topic.id] ? (
-                    <div className="flex justify-center py-4">
+                    <div className="flex justify-center py-8">
                       <LoadingSpinner small />
                     </div>
                   ) : (
-                    <>
+                    <div className="space-y-3">
+                      
                       {(threadsByTopic[topic.id] || []).slice(0, 3).map((thread) => (
                         <div
                           key={thread.id}
-                          className="bg-gray-100 p-3 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                          className="bg-gray-50 p-3 rounded-xl cursor-pointer hover:bg-gray-100 transition-all duration-200 hover:shadow-sm"
                           onClick={() => handleThreadClick(topic.id, thread.id)}
                         >
                           <div className="flex items-start space-x-3">
-                            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs">
+                            <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                               {thread.title.charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex-1">
-                              <div className="flex justify-between items-center">
-                                <span className="font-semibold">{thread.title}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start gap-2">
+                                <h4 className="font-semibold text-gray-800 text-sm leading-5 line-clamp-2">{thread.title}</h4>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     toggleFavorite(thread.id)
                                   }}
+                                  className="p-1 hover:bg-gray-200 rounded-full transition-colors flex-shrink-0"
                                 >
                                   {favoriteThreadIds.includes(thread.id) ? (
-                                    <Star className="text-yellow-400 w-4 h-4" />
+                                    <Star className="text-yellow-500 w-4 h-4 fill-current" />
                                   ) : (
                                     <StarOff className="text-gray-400 w-4 h-4" />
                                   )}
                                 </button>
                               </div>
-                              <div className="text-xs text-gray-600 mt-1 flex space-x-2">
-                                <span>{thread.replies_count ?? 0} Replies</span>
-                                <span>•</span>
-                                <span>{thread.views_count ?? 0} Views</span>
+                              <div className="flex items-center space-x-2 mt-2 text-xs text-gray-600">
+                                <span className="bg-gray-200 px-2 py-1 rounded-full text-xs">
+                                  {thread.replies_count ?? 0} Replies
+                                </span>
+                                <span className="bg-gray-200 px-2 py-1 rounded-full text-xs">
+                                  {thread.views_count ?? 0} Views
+                                </span>
                               </div>
                             </div>
                           </div>
                         </div>
                       ))}
+
                       {(threadsByTopic[topic.id] || []).length === 0 && (
-                        <div className="text-center py-4 text-gray-500">No threads found</div>
+                        <div className="text-center py-8 text-gray-500">
+                          <div className="text-lg mb-2">🌱</div>
+                          <p>No threads found in this topic</p>
+                        </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -343,6 +381,17 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
           </div>
         </div>
       </div>
+      <ErrorAlertModal
+      open={showErrorModal}
+      message={alertMessage}
+      onClose={() => setShowErrorModal(false)}
+    />
+
+    <SuccessAlertModal
+      open={showSuccessModal}
+      message={alertMessage}
+      onClose={() => setShowSuccessModal(false)}
+    />
     </div>
   )
 }

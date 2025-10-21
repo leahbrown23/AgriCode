@@ -1,65 +1,91 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+# Import views from the new modular structure
 from .views import (
-    RegisterView, 
-    ProfileView, 
-    PlotViewSet, 
-    CropViewSet, 
-    farm_view, 
-    crop_view, 
-    crop_detail_view, 
-    upload_soil_data, 
-    latest_soil_data, 
-    latest_soil_reading_by_plot, 
-    get_user_plot_numbers,
-    get_crop_by_plot_key,
-    get_favorite_threads,
-    add_favorite_thread,
-    remove_favorite_thread,
-    update_crop_status,
-    harvest_crop,
-    list_harvests,
-    reading_history,  # ✅ NEW import
+    auth_views, farm_views, plot_views, crop_views,
+    harvest_views, sensor_views, sim_views, reading_views, misc_views,
 )
 
-# DRF Router for viewsets
-router = DefaultRouter()
-router.register(r'farm/plots', PlotViewSet, basename='plot')
-router.register(r'farm/crops', CropViewSet, basename='crop')
-
 urlpatterns = [
-    # Authentication
-    path('register/', RegisterView.as_view(), name='register'),
-    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # -------------------------
+    # JWT Authentication
+    # -------------------------
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('profile/', ProfileView.as_view(), name='profile'),
+    
+    # -------------------------
+    # Authentication
+    # -------------------------
+    path('register/', auth_views.register, name='register'),
+    path('login/', auth_views.login, name='login'),
+    path('logout/', auth_views.logout, name='logout'),
 
+    # -------------------------
+    # Profile & Favorites
+    # -------------------------
+    path('profile/', auth_views.get_profile, name='get_profile'),
+    path('favorites/', auth_views.get_favorites, name='get_favorites'),
+
+    # -------------------------
     # Farm
-    path('farm/', farm_view, name='farm'),
+    # -------------------------
+    path('farm/', farm_views.farm_view, name='farm_view'),
+    path('farms/', farm_views.get_farms, name='get_farms'),
+    path('farms/create/', farm_views.create_farm, name='create_farm'),
 
-    # Crops
-    path('farm/crops/', crop_view, name='crop-list'),
-    path('farm/crops/<int:crop_id>/', crop_detail_view, name='crop-detail'),
-    path('farm/crops/by-plot/<str:plot_key>/', get_crop_by_plot_key, name='crop-by-plot'),
-    path('farm/crops/<int:crop_id>/status/', update_crop_status, name='update-crop-status'),
-    path('farm/crops/<int:crop_id>/harvest/', harvest_crop, name='harvest-crop'),
+    # -------------------------
+    # Plot Management
+    # -------------------------
+    path('plots/', plot_views.get_plots, name='get_plots'),
+    path('plots/create/', plot_views.create_plot, name='create_plot'),
+    path('farm/plots/', plot_views.get_farm_plots, name='get_farm_plots'),
+    path('farm/plots/<int:plot_id>/', plot_views.plot_detail, name='plot_detail'),
 
-    # Harvests
-    path('harvests/', list_harvests, name='list-harvests'),
+    # -------------------------
+    # Sensor Management
+    # -------------------------
+    path('sensors/validate/', sensor_views.validate_sensor, name='validate_sensor'),
+    path('sensors/connect/', sensor_views.connect_sensor, name='connect_sensor'),
+    path('sensors/<int:device_id>/activate/', sensor_views.activate_sensor, name='activate_sensor'),
+    path('sensors/<int:device_id>/toggle/', sensor_views.toggle_device, name='toggle_device'),
+    path('sensors/<int:device_id>/delete/', sensor_views.delete_device, name='delete_device'),
 
+    # 🔥 Add aliases to match frontend `/sim/devices/...`
+    path('sim/devices/<int:device_id>/toggle/', sensor_views.toggle_device, name='sim_toggle_device'),
+    path('sim/devices/<int:device_id>/', sensor_views.delete_device, name='sim_delete_device'),
+
+    # -------------------------
     # Sensor Data
-    path('upload-sensor-data/', upload_soil_data, name='upload-sensor-data'),
-    path('latest-soil-data/', latest_soil_data, name='latest-soil-data'),
-    path('latest-reading/', latest_soil_reading_by_plot, name='latest-reading'),
-    path('get-user-plots/', get_user_plot_numbers, name='get-user-plots'),
-    path('reading-history/', reading_history, name='reading-history'),  # ✅ NEW endpoint
+    # -------------------------
+    path('sensors/data/<int:plot_id>/', sim_views.get_sensor_data, name='get_sensor_data'),
 
-    # Favorite Threads
-    path('favorites/', get_favorite_threads, name='favorite-threads'),
-    path('favorites/add/', add_favorite_thread, name='add-favorite'),
-    path('favorites/<int:favorite_id>/', remove_favorite_thread, name='remove-favorite'),
+    # -------------------------
+    # Soil Health
+    # -------------------------
+    path('latest-reading/', reading_views.latest_reading, name='latest_reading'),
+    path('reading-history/', reading_views.reading_history, name='reading_history'),
 
-    # ViewSets
-    path('', include(router.urls)),
+    # -------------------------
+    # Simulation
+    # -------------------------
+    path('sim/status/', sim_views.sim_status, name='sim_status'),
+
+    # -------------------------
+    # Crops & Harvests
+    # -------------------------
+    path('farm/crops/', crop_views.farm_crops, name='farm_crops'),
+    path('farm/crops/<int:crop_id>/', crop_views.crop_detail, name='crop_detail'),
+    path('farm/crops/<int:crop_id>/status/', crop_views.update_crop_status, name='update_crop_status'),
+    path('farm/crops/<int:crop_id>/harvest/', misc_views.harvest_crop, name='harvest_crop'),
+
+    path('farm/harvests/', harvest_views.farm_harvests, name='farm_harvests'),
+    path('harvests/', harvest_views.farm_harvests, name='farm_harvests_root'),
+    path('farm/harvests/<int:crop_id>/update/', harvest_views.update_harvest, name='update_harvest'),
+
+    # -------------------------
+    # ML endpoints (crop + yield predictions)
+    # -------------------------
+    path('ml/', include('ml.urls')),
+    
 ]

@@ -23,7 +23,7 @@ export default function DashboardScreen({
 
   return (
     <div className="flex flex-col h-full pb-16 bg-[#d1e6b2]">
-      <div className="p-5 bg-white rounded-b-2xl shadow">
+      <div className="p-5 bg-white rounded-t-none shadow">
         <h1 className="text-xl font-bold text-center text-gray-800">SmartHarvest Africa</h1>
       </div>
 

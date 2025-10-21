@@ -1,10 +1,12 @@
 import axios from "axios"
+const API_BASE_URL = process.env.REACT_APP_API_URL || "https://agricode-wsa2.onrender.com";
+
 
 const api = axios.create({
-  baseURL: "http://localhost:8000",
-})
+  baseURL: API_BASE_URL,
+});
 
-// === Token Refresh Logic with Queue Support ===
+// === Token Refresh with Queue Support ===
 let isRefreshing = false
 let failedQueue = []
 
@@ -75,7 +77,15 @@ api.interceptors.response.use(
         processQueue(err, null)
         localStorage.removeItem("accessToken")
         localStorage.removeItem("refreshToken")
-        window.location.href = "/login"
+        
+        // Improved error handling - don't immediately redirect
+        console.log("Token refresh failed:", err)
+        
+        // Only redirect if we're not already on login page
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+          window.location.href = "/"
+        }
+        
         return Promise.reject(err)
       } finally {
         isRefreshing = false

@@ -1,0 +1,36 @@
+{
+    "crop": {
+        "forward": {
+            "maize": 0,
+            "potato": 1,
+            "rice": 2,
+            "sugarcane": 3,
+            "wheat": 4
+        },
+        "reverse": {
+            "0": "maize",
+            "1": "potato",
+            "2": "rice",
+            "3": "sugarcane",
+            "4": "wheat"
+        }
+    },
+    "soil_type": {
+        "forward": {
+            "Clay": 0,
+            "Loamy": 1,
+            "Peaty": 2,
+            "Saline": 3,
+            "Sandy": 4,
+            "Silt": 5
+        },
+        "reverse": {
+            "0": "Clay",
+            "1": "Loamy",
+            "2": "Peaty",
+            "3": "Saline",
+            "4": "Sandy",
+            "5": "Silt"
+        }
+    }
+}
