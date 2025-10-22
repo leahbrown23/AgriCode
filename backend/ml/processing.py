@@ -100,6 +100,6 @@ if __name__ == "__main__":
         df, save_path=PROCESSED_PATH, mapping_path=MAPPING_PATH
     )
 
-    print(f"✅ Processed data saved to {PROCESSED_PATH}")
-    print(f"✅ Mapping saved to {MAPPING_PATH}")
+    print(f" Processed data saved to {PROCESSED_PATH}")
+    print(f" Mapping saved to {MAPPING_PATH}")
     print(processed_df.head())

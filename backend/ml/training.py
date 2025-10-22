@@ -20,7 +20,7 @@ df = pd.read_csv(DATA_PATH)
 # Load crop mapping (for decoding later)
 with open(MAPPING_PATH, "r") as f:
     crop_mapping = json.load(f)
-print("✅ Loaded crop mappings:", crop_mapping)
+print(" Loaded crop mappings:", crop_mapping)
 
 # ---------------------------
 # Crop Classification Model
@@ -48,19 +48,19 @@ clf.fit(Xc_train, yc_train)
 # Evaluate
 yc_pred = clf.predict(Xc_test)
 acc = accuracy_score(yc_test, yc_pred)
-print(f"✅ Accuracy for crop prediction: {acc:.2f}")
+print(f" Accuracy for crop prediction: {acc:.2f}")
 print(classification_report(yc_test, yc_pred))
 
 # Save crop classifier
 clf_path = os.path.join(MODEL_DIR, "crop_rf_model.pkl")
 joblib.dump(clf, clf_path)
-print(f"💾 Saved crop prediction model to {clf_path}")
+print(f" Saved crop prediction model to {clf_path}")
 
 # Save feature columns
 feature_cols_path = os.path.join(MODEL_DIR, "crop_feature_columns.json")
 with open(feature_cols_path, "w") as f:
     json.dump(feature_cols, f)
-print(f"💾 Saved crop feature columns to {feature_cols_path}")
+print(f" Saved crop feature columns to {feature_cols_path}")
 
 
 # ---------------------------
@@ -68,7 +68,7 @@ print(f"💾 Saved crop feature columns to {feature_cols_path}")
 # ---------------------------
 
 if "Yield" in df.columns:
-    print("\n🌾 Training yield prediction model...")
+    print("\n Training yield prediction model...")
 
     from sklearn.preprocessing import LabelEncoder
     from sklearn.model_selection import RandomizedSearchCV
@@ -129,8 +129,8 @@ if "Yield" in df.columns:
     yy_pred = best_reg.predict(Xy_test)
     rmse = np.sqrt(mean_squared_error(yy_test, yy_pred))
     r2 = r2_score(yy_test, yy_pred)
-    print(f"✅ Yield prediction RMSE: {rmse:.2f}, R2: {r2:.2f}")
-    print(f"🏆 Best Parameters: {search.best_params_}")
+    print(f" Yield prediction RMSE: {rmse:.2f}, R2: {r2:.2f}")
+    print(f" Best Parameters: {search.best_params_}")
 
     # Feature importances
     importance_df = pd.DataFrame({
@@ -138,13 +138,13 @@ if "Yield" in df.columns:
         "importance": best_reg.feature_importances_
     }).sort_values(by="importance", ascending=False)
 
-    print("\n🔍 Feature Importances:")
+    print("\n Feature Importances:")
     print(importance_df)
 
     # Save model and metadata
     reg_path = os.path.join(MODEL_DIR, "yield_rf_model.pkl")
     joblib.dump(best_reg, reg_path)
-    print(f"💾 Saved yield prediction model to {reg_path}")
+    print(f" Saved yield prediction model to {reg_path}")
 
     encoder_path = os.path.join(MODEL_DIR, "yield_crop_encoder.json")
     crop_encoder_mapping = {
@@ -152,11 +152,11 @@ if "Yield" in df.columns:
     }
     with open(encoder_path, "w") as f:
         json.dump(crop_encoder_mapping, f, indent=4)
-    print(f"💾 Saved crop encoder to {encoder_path}")
+    print(f" Saved crop encoder to {encoder_path}")
 
     yield_feature_cols_path = os.path.join(MODEL_DIR, "yield_feature_columns.json")
     with open(yield_feature_cols_path, "w") as f:
         json.dump(yield_feature_cols, f, indent=4)
-    print(f"💾 Saved yield feature columns to {yield_feature_cols_path}")
+    print(f" Saved yield feature columns to {yield_feature_cols_path}")
 else:
-    print("⚠️ 'Yield' column not found in dataset, skipping yield model training")
+    print(" 'Yield' column not found in dataset, skipping yield model training")
