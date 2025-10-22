@@ -2,7 +2,11 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import status
 from . import inference
+from . import recommend
+from .models import Recommendation
+from .serializers import RecommendationSerializer
 import json
 
 @api_view(['POST'])
@@ -56,6 +60,88 @@ def recommend_crop(request):
             "error": str(e)
         }, status=200)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_recommendation(request):
+    """
+    Generates recommendations for the given input data and saves them for the user.
+    """
+    try:
+        data = request.data
+        harvest_id = data.get("harvest_id")
+
+        # Validate required fields
+        required_fields = ['N', 'P', 'K', 'pH', 'Temperature', 'Humidity', 'Rainfall', 'Soil_Type']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return Response({
+                "error": f"Missing required fields: {', '.join(missing_fields)}",
+                "recommendation": None
+            }, status=400)
+        
+        if not harvest_id:
+            return Response({
+                "error": "Missing harvest_id in request body"
+            }, status=400)
+
+
+        # Call recommendation logic
+        result = recommend.generate_recommendations(data)
+
+        # Save recommendation for user
+        rec = Recommendation.objects.create(
+            user=request.user,
+            harvest_id=harvest_id,
+            input_data=data,
+            output_data=result,
+            status="to_do"
+        )
+
+        return Response({
+            "recommendation": result,
+            "status": "success",
+            "id": rec.id
+        }, status=200)
+
+    except Exception as e:
+        return Response({
+            "recommendation": None,
+            "status": "error",
+            "error": str(e)
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_recommendations(request):
+    """
+    Retrieves the last 5 saved recommendations for the authenticated user.
+    """
+    recs = Recommendation.objects.filter(user=request.user).order_by('-created_at')[:5]
+    return Response({
+        "recommendations": [r.to_dict() for r in recs],
+        "status": "success"
+    })
+
+@api_view(['PATCH'])
+def update_recommendation_status(request, recommendation_id):
+    """
+    Update the status of a recommendation (e.g., accepted, rejected, implemented)
+    """
+    try:
+        recommendation = Recommendation.objects.get(id=recommendation_id)
+    except Recommendation.DoesNotExist:
+        return Response({"error": "Recommendation not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    new_status = request.data.get("status")
+    if not new_status:
+        return Response({"error": "Missing status field."}, status=status.HTTP_400_BAD_REQUEST)
+
+    recommendation.status = new_status
+    recommendation.save()
+
+    serializer = RecommendationSerializer(recommendation)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
