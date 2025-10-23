@@ -30,6 +30,7 @@ INSTALLED_APPS = [
 
     'api',
     'forum',
+    'ml',
 
     'channels',
 
