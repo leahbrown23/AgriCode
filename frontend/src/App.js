@@ -23,7 +23,6 @@ import SensorSetupScreen from "./components/SensorSetupScreen"
 import SoilHealthScreen from "./components/SoilHealthScreen"
 import ThreadViewScreen from "./components/ThreadViewScreen"
 import UploadSensorData from "./components/UploadSensorData"
-import UserProfileScreen from "./components/UserProfileScreen"
 import ViewSensorData from "./components/ViewSensorData"
 
 function App() {
