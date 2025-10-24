@@ -5,10 +5,10 @@ import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronRight, Home, LogOut, Menu, User } from "lucide-react"
 import "./App.css"
 
-
-// ✅ Import the default export only (works whether named helpers exist or not)
+// ✅ API client
 import api from "./api/api"
 
+// ✅ Screens/components
 import CropSetupScreen from "./components/CropSetupScreen"
 import DashboardScreen from "./components/DashboardScreen"
 import DiscussionForumScreen from "./components/DiscussionForumScreen"
@@ -26,7 +26,6 @@ import UploadSensorData from "./components/UploadSensorData"
 import ViewSensorData from "./components/ViewSensorData"
 
 function App() {
-  // null = bootstrapping auth; then we pick a real screen
   const [currentScreen, setCurrentScreen] = useState(null)
   const [selectedThreadId, setSelectedThreadId] = useState(null)
 
@@ -37,54 +36,51 @@ function App() {
   const menuRef = useRef(null)
   const menuButtonRef = useRef(null)
 
-  // Helper: best-effort auth bootstrap that works with or without named helpers in api
   async function tryBootstrapAuth() {
     try {
-      // If api provides a bootstrap helper, use it
+      // If api has a helper, prefer that
       if (api && typeof api.bootstrapAuth === "function") {
         await api.bootstrapAuth()
         return true
       }
 
-      // Check if we have tokens
+      // Manual token check
       const access = localStorage.getItem("accessToken")
       const refresh = localStorage.getItem("refreshToken")
-      
+
       if (access && refresh) {
-        // Test if the token is actually valid by making a simple API call
         try {
-          // Set the header first
+          // attach access token
           if (api?.defaults?.headers?.common) {
             api.defaults.headers.common["Authorization"] = `Bearer ${access}`
           }
-          
-          // Make a test API call to verify the token works
-          await api.get("/api/profile/") // or any protected endpoint
+
+          // ping a protected endpoint
+          await api.get("/api/profile/")
           return true
         } catch (error) {
-          // Token is invalid, clear storage
+          // token invalid -> clear
           localStorage.removeItem("accessToken")
           localStorage.removeItem("refreshToken")
           return false
         }
       }
-      
+
       return false
     } catch {
       return false
     }
   }
 
-  // ----- Auth bootstrap (restore/refresh tokens and set header) -----
+  // bootstrap auth and land on login
   useEffect(() => {
     ;(async () => {
       await tryBootstrapAuth()
-      // Always start at login screen regardless of token status
       setCurrentScreen("login")
     })()
   }, [])
 
-  // Close the menu when clicking outside / Esc
+  // click-outside / ESC to close menu
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -109,7 +105,7 @@ function App() {
     }
   }, [isMenuOpen])
 
-  // Collapse submenus whenever the menu closes
+  // collapse submenus whenever menu closes
   useEffect(() => {
     if (!isMenuOpen) {
       setIsDashboardExpanded(false)
@@ -120,12 +116,11 @@ function App() {
   const toggleMenu = () => setIsMenuOpen((o) => !o)
 
   const handleLogout = () => {
-    // Use api.logout() if present, otherwise clear tokens locally
     if (api && typeof api.logout === "function") {
       api.logout()
     } else {
-      localStorage.removeItem("accessToken") // Fixed: changed from "access"
-      localStorage.removeItem("refreshToken") // Fixed: changed from "refresh"
+      localStorage.removeItem("accessToken")
+      localStorage.removeItem("refreshToken")
     }
     localStorage.removeItem("selectedSoilPlot")
     setCurrentScreen("loginForm")
@@ -201,14 +196,6 @@ function App() {
           />
         )
 
-      case "userProfile":
-        return (
-          <UserProfileScreen
-            onBackClick={() => setCurrentScreen("dashboard")}
-            onRegisterClick={() => alert("Farm details registered!")}
-          />
-        )
-
       case "farmSetup":
         return (
           <FarmSetupScreen
@@ -271,7 +258,6 @@ function App() {
         )
 
       default:
-        // Bootstrapping state
         return (
           <div className="flex items-center justify-center h-full">
             <span className="text-sm text-gray-500">Loading…</span>
@@ -285,7 +271,6 @@ function App() {
     "soilHealth",
     "insights",
     "recommendations",
-    "userProfile",
     "farmSetup",
     "discussionForum",
     "threadView",
