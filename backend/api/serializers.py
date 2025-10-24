@@ -1,9 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from forum.models import Thread
-from .models import CustomUser
-from datetime import datetime
-
 
 from .models import (
     CustomUser,
@@ -37,15 +35,15 @@ class FavoriteThreadSerializer(serializers.ModelSerializer):
 # -------------------------
 # Auth / Users
 # -------------------------
-
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ["id", "username", "email", "first_name", "last_name", "phone_number"]
-        
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
-    
+
     class Meta:
         model = CustomUser
         fields = [
@@ -60,7 +58,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
-        password = validated_data.pop('password')
+        password = validated_data.pop("password")
         user = CustomUser.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()
@@ -78,46 +76,50 @@ class FarmSerializer(serializers.ModelSerializer):
 
 
 class CropSerializer(serializers.ModelSerializer):
-    expected_end_date = serializers.DateTimeField(write_only=True, required=False)
+    # allow client to send expected end date when creating crop
+    expected_end_date = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Crop
         fields = [
-            "id", "user", "farm", "plot_number", "plot",
-            "crop_type", "crop_variety", "soil_type", "status",
-            "expected_end_date",   # ⬅ extra input field, not saved to Crop
+            "id",
+            "user",
+            "farm",
+            "plot_number",
+            "plot",
+            "crop_type",
+            "crop_variety",
+            "soil_type",
+            "status",
+            "expected_end_date",  # not stored on Crop, used to seed Harvest
         ]
         read_only_fields = ["user"]
 
     def create(self, validated_data):
         expected_end_date = validated_data.pop("expected_end_date", None)
-        
-        # Create crop first
         crop = super().create(validated_data)
-        
-        # Ensure optional fields are handled
-        harvest_data = {
-            "crop": crop,
-            "user": getattr(crop, "user", None),
-            "plot": getattr(crop, "plot", None),
-            "crop_type": crop.crop_type or "Unknown",
-            "crop_variety": crop.crop_variety or "Unknown",
-            "start_date": datetime.now(),
-            "expected_end_date": expected_end_date,
-            "yield_amount": 0,
-            "comments": "",
-        }
 
-        # Only create Harvest if required fields are present
-        if harvest_data["user"] and harvest_data["plot"]:
-            Harvest.objects.create(**harvest_data)
-        else:
-            print("Cannot create harvest — missing user or plot")
-
+        # Create a Harvest row (only if we have user & plot)
+        user = getattr(crop, "user", None)
+        plot = getattr(crop, "plot", None)
+        if user and plot:
+            Harvest.objects.create(
+                crop=crop,
+                user=user,
+                plot=plot,
+                crop_type=crop.crop_type or "Unknown",
+                crop_variety=crop.crop_variety or "Unknown",
+                start_date=timezone.now(),          # 👈 timezone-safe start date
+                expected_end_date=expected_end_date,
+                end_date=None,
+                yield_amount=0,
+                comments="",
+            )
         return crop
 
 
 class HarvestSerializer(serializers.ModelSerializer):
+    # Expose public plot code to make frontend joins trivial
     plot_number = serializers.SerializerMethodField()
 
     def get_plot_number(self, obj):
@@ -129,7 +131,7 @@ class HarvestSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "plot",
-            "plot_number",
+            "plot_number",   # public code
             "crop_type",
             "crop_variety",
             "start_date",
@@ -153,17 +155,15 @@ class PlotSerializer(serializers.ModelSerializer):
         model = Plot
         fields = "__all__"
         read_only_fields = ["user", "unique_plot_key"]
-    
+
     def create(self, validated_data):
-        # Ensure the user is set from the request context
-        request = self.context.get('request')
+        request = self.context.get("request")
         if request and request.user:
-            validated_data['user'] = request.user
+            validated_data["user"] = request.user
         return super().create(validated_data)
-    
+
     def update(self, instance, validated_data):
-        # Ensure user can't be changed during update
-        validated_data.pop('user', None)
+        validated_data.pop("user", None)
         return super().update(instance, validated_data)
 
 
@@ -175,7 +175,6 @@ class SensorValidateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         sensor_id = attrs["sensor_id"]
-        # Check if sensor exists in your SoilSensorReading table
         qs = SoilSensorReading.objects.filter(sensor_id=sensor_id)
         if not qs.exists():
             raise serializers.ValidationError(f"No sensor data found for sensor ID: {sensor_id}")
@@ -208,8 +207,8 @@ class SensorConnectSerializer(serializers.Serializer):
 
 
 class SensorDeviceSerializer(serializers.ModelSerializer):
-    plot_name = serializers.CharField(source='plot.plot_id', read_only=True)
-    
+    plot_name = serializers.CharField(source="plot.plot_id", read_only=True)
+
     class Meta:
         model = SensorDevice
         fields = [
@@ -227,9 +226,9 @@ class SensorDeviceSerializer(serializers.ModelSerializer):
 
 
 class SensorDataSerializer(serializers.ModelSerializer):
-    device_name = serializers.CharField(source='device.name', read_only=True)
-    plot_name = serializers.CharField(source='plot.plot_id', read_only=True)
-    
+    device_name = serializers.CharField(source="device.name", read_only=True)
+    plot_name = serializers.CharField(source="plot.plot_id", read_only=True)
+
     class Meta:
         model = SensorData
         fields = [
