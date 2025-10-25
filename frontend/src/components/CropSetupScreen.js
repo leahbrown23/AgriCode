@@ -28,6 +28,8 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   const [harvestRecords, setHarvestRecords] = useState([])
   const [harvestLoading, setHarvestLoading] = useState(false)
   const [expectedEndDate, setExpectedEndDate] = useState("")
+  const [pestMonth, setPestMonth] = useState("")
+  const [fertMonth, setFertMonth] = useState("")
 
   const cropTypes = [
     "Maize",
@@ -162,11 +164,15 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
   crop_variety: cropVariety,
   soil_type: soilType, 
   expected_end_date: expectedEndDate,
+  pest_month: pestMonth,
+  fert_month: fertMonth,
 })
       setSuccessMessage("Crop added successfully!")
       setSelectedPlotId("")
       setCropType("")
       setCropVariety("")
+      setPestMonth("")
+      setFertMonth("")
       fetchUserCrops()
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
@@ -491,6 +497,42 @@ export default function CropSetupScreen({ onBackClick, onHomeClick, onProfileCli
             />
           </div>
         </div>
+
+        <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Pesticide Usage per Month (kg)
+  </label>
+  <div className="relative">
+    <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <input
+      type="number"
+      step="any"
+      placeholder="Enter pesticide amount per month"
+      value={pestMonth}
+      onChange={(e) => setPestMonth(e.target.value)}
+      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm
+                focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+    />
+  </div>
+</div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Fertiliser Usage per Month (kg)
+    </label>
+    <div className="relative">
+      <Sprout className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="number"
+        step="any"
+        placeholder="Enter fertiliser amount per month"
+        value={fertMonth}
+        onChange={(e) => setFertMonth(e.target.value)}
+        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm
+                  focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+      />
+    </div>
+  </div>
 
 
 
