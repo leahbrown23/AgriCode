@@ -15,12 +15,10 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 SECRET_KEY = 'django-insecure-j+$(v4)$icyo51n)n@i*5dz4*ujvri!-esrsz7olmc$eponr)&'
 
-# In production on Render you should flip this to False
+# Local development mode
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "agricode-wsa2.onrender.com",
-    "agricode-1.onrender.com",
     "localhost",
     "127.0.0.1",
 ]
@@ -31,6 +29,9 @@ AUTH_USER_MODEL = "api.CustomUser"
 # Installed apps
 # -------------------------------------------------
 INSTALLED_APPS = [
+    # NOTE: We REMOVED "daphne"
+    # NOTE: We REMOVED "channels"
+
     # Django core
     "django.contrib.admin",
     "django.contrib.auth",
@@ -42,7 +43,6 @@ INSTALLED_APPS = [
     # Third-party
     "corsheaders",
     "rest_framework",
-    "channels",
     "rest_framework_simplejwt.token_blacklist",
 
     # Your apps
@@ -67,29 +67,20 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# In production we also want WhiteNoise to serve static files.
-# We'll inject it just after SecurityMiddleware when DEBUG = False (see bottom).
-
 # -------------------------------------------------
 # CORS / CSRF / Cookies
 # -------------------------------------------------
-# Frontends that are allowed to call this API from the browser
+# Allow React dev app (port 3000) to talk to Django dev server (port 8000)
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    # if you have a deployed frontend somewhere else, include it here:
-    "https://agricode-1.onrender.com",
 ]
 
-# If you send cookies / Authorization headers across origins
 CORS_ALLOW_CREDENTIALS = True
 
-# Domains allowed to POST to us with CSRF tokens (mainly matters if you use cookies)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://agricode-wsa2.onrender.com",
-    "https://agricode-1.onrender.com",
 ]
 
 # Dev cookie policy
@@ -113,8 +104,8 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),      # Increased from 15 min
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),        # "remember me" window
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
@@ -122,7 +113,7 @@ SIMPLE_JWT = {
 }
 
 # -------------------------------------------------
-# URL / ASGI / WSGI
+# URL / WSGI
 # -------------------------------------------------
 ROOT_URLCONF = "backend.urls"
 
@@ -141,11 +132,14 @@ TEMPLATES = [
     },
 ]
 
-# Django's normal WSGI app (admin, management commands, etc.)
+# Pure Django dev server uses WSGI
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# Channels ASGI app for websockets / realtime
-ASGI_APPLICATION = "backend.asgi.application"
+# NOTE:
+# We REMOVED:
+#   ASGI_APPLICATION = "backend.asgi.application"
+#   CHANNEL_LAYERS = {...}
+# because we are no longer running Channels or Daphne.
 
 # -------------------------------------------------
 # Databases
@@ -163,18 +157,6 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "sensorsim.sqlite3",
     },
-}
-
-# -------------------------------------------------
-# Channels / Redis
-# -------------------------------------------------
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")],
-        },
-    }
 }
 
 # -------------------------------------------------
@@ -197,6 +179,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Production-only extras
 # -------------------------------------------------
 if not DEBUG:
-    # Insert WhiteNoise right after SecurityMiddleware
-    # (index 1 because CorsMiddleware is index 0, SecurityMiddleware is index 1 initially)
+    # When you flip DEBUG=False for deployment later:
+    # WhiteNoise handles static files in production.
     MIDDLEWARE.insert(2, "whitenoise.middleware.WhiteNoiseMiddleware")

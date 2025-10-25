@@ -52,17 +52,17 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
     fetchProfileAndFarm()
   }, [token])
 
-  // Load favorites
+  // Load favorites from localStorage (since backend is placeholder)
   useEffect(() => {
-    const fetchFavoritesFromApi = async () => {
-      if (!token) return
+    const fetchFavoritesFromLocalStorage = async () => {
+      if (!token || !user) return
       setLoadingFavorites(true)
       try {
-        const favRes = await api.get("/api/favorites/")
-        const favs = favRes.data
-        const favoriteIds = favs.map(fav => fav.thread_id)
+        // Get favorites from localStorage for this user
+        const favoriteIds = JSON.parse(localStorage.getItem(`userFavorites_${user.id}`) || '[]')
 
         if (favoriteIds.length > 0) {
+          // Fetch thread details from Django backend
           const threadsRes = await api.get("/forum/threads/")
           const allThreads = threadsRes.data.results || []
           const filtered = allThreads.filter(t => favoriteIds.includes(t.id))
@@ -77,8 +77,38 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
         setLoadingFavorites(false)
       }
     }
-    fetchFavoritesFromApi()
-  }, [token])
+    fetchFavoritesFromLocalStorage()
+  }, [token, user])
+
+  // Listen for localStorage changes (when favorites are updated in other components)
+  useEffect(() => {
+    if (!user) return
+
+    const handleStorageChange = (e) => {
+      if (e.key === `userFavorites_${user.id}`) {
+        // Refetch favorites when localStorage changes
+        const fetchUpdatedFavorites = async () => {
+          try {
+            const favoriteIds = JSON.parse(e.newValue || '[]')
+            if (favoriteIds.length > 0) {
+              const threadsRes = await api.get("/forum/threads/")
+              const allThreads = threadsRes.data.results || []
+              const filtered = allThreads.filter(t => favoriteIds.includes(t.id))
+              setFavoriteThreads(filtered)
+            } else {
+              setFavoriteThreads([])
+            }
+          } catch (err) {
+            console.error("Error updating favorite threads:", err)
+          }
+        }
+        fetchUpdatedFavorites()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [user])
 
   const showSuccess = (message) => {
     setSuccessMessage(message)

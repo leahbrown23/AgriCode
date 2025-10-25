@@ -140,7 +140,11 @@ export default function InsightsScreen({
   const [showCustomSettings, setShowCustomSettings] = useState(false)
   const [tempRanges, setTempRanges] = useState({})
   const [plotSoilType, setPlotSoilType] = useState(null)
+  const [plotsWithSensors, setPlotsWithSensors] = useState(new Set())
   const dropdownRef = useRef(null)
+
+  // polling timer ref (same as SoilHealthScreen)
+  const pollTimerRef = useRef(null)
 
   // Get optimal ranges using shared utility
   const selectedPlotInfo = plotOptions.find(opt => opt.value === selectedPlot)
@@ -160,67 +164,57 @@ export default function InsightsScreen({
   }
 
   // Function to get single ML crop recommendation
-  // ...existing code...
+  async function getMLCropRecommendation(soilData, currentSoilType) {
+    if (!soilData) return null
 
-// Function to get single ML crop recommendation
-// ...existing code...
+    try {
+      // Ensure we have all required fields with default values
+      const payload = {
+        N: soilData.N || 100,
+        P: soilData.P || 50,
+        K: soilData.K || 100,
+        pH: soilData.pH_level || 6.5,
+        Temperature: soilData.Temperature || 25,
+        Humidity: soilData.Humidity || 60,
+        Rainfall: soilData.Rainfall || 500,
+        Soil_Type: currentSoilType || "Loamy",
+      }
 
-// Function to get single ML crop recommendation
-async function getMLCropRecommendation(soilData, currentSoilType) {
-  if (!soilData) return null
-
-  try {
-    // Ensure we have all required fields with default values
-    const payload = {
-      N: soilData.N || 100,
-      P: soilData.P || 50,
-      K: soilData.K || 100,
-      pH: soilData.pH_level || 6.5,
-      Temperature: soilData.Temperature || 25,
-      Humidity: soilData.Humidity || 60,
-      Rainfall: soilData.Rainfall || 500,
-      Soil_Type: currentSoilType || "Loamy",
-    }
-
-    console.log("Sending ML recommendation request:", payload)
-    
-    const res = await api.post("/ml/recommend-crop/", payload)
-    console.log("ML recommendation response:", res.data)
-    
-    // Handle the single recommendation format
-    const recommendation = res.data.recommendation
-    
-    if (recommendation && recommendation.crop) {
-      // Clean up crop name in case there are any formatting issues
-      let cropName = recommendation.crop.toString().toLowerCase().trim()
+      console.log("Sending ML recommendation request:", payload)
       
-      // Ensure it's a valid crop name
-      const validCrops = ['wheat', 'tomato', 'sugarcane', 'maize', 'potato', 'rice']
-      if (!validCrops.includes(cropName)) {
-        console.warn(`Invalid crop name received: ${cropName}, defaulting to maize`)
-        cropName = 'maize'
+      const res = await api.post("/ml/recommend-crop/", payload)
+      console.log("ML recommendation response:", res.data)
+      
+      // Handle the single recommendation format
+      const recommendation = res.data.recommendation
+      
+      if (recommendation && recommendation.crop) {
+        // Clean up crop name in case there are any formatting issues
+        let cropName = recommendation.crop.toString().toLowerCase().trim()
+        
+        // Ensure it's a valid crop name
+        const validCrops = ['wheat', 'tomato', 'sugarcane', 'maize', 'potato', 'rice']
+        if (!validCrops.includes(cropName)) {
+          console.warn(`Invalid crop name received: ${cropName}, defaulting to maize`)
+          cropName = 'maize'
+        }
+        
+        return {
+          crop: cropName,
+          mlConfidence: parseInt(recommendation.ml_confidence) || 75,
+          compatibilityScore: parseInt(recommendation.compatibility_score) || getCompatibilityScore(cropName, soilData),
+          soilTypeCompatible: SOIL_TYPE_PREFERENCES[cropName]?.includes(currentSoilType?.toLowerCase()) || false,
+        }
       }
       
-      return {
-        crop: cropName,
-        mlConfidence: parseInt(recommendation.ml_confidence) || 75,
-        compatibilityScore: parseInt(recommendation.compatibility_score) || getCompatibilityScore(cropName, soilData),
-        soilTypeCompatible: SOIL_TYPE_PREFERENCES[cropName]?.includes(currentSoilType?.toLowerCase()) || false,
-      }
+      return null
+    } catch (err) {
+      console.error("ML recommendation failed:", err)
+      console.error("Error details:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      return null
     }
-    
-    return null
-  } catch (err) {
-    console.error("ML recommendation failed:", err)
-    console.error("Error details:", err.response?.data)
-    console.error("Error status:", err.response?.status)
-    return null
   }
-}
-
-// ...existing code...
-
-// ...existing code...
 
   // Add helper function for compatibility calculation
   function getCompatibilityScore(cropName, soilData) {
@@ -250,18 +244,72 @@ async function getMLCropRecommendation(soilData, currentSoilType) {
     return totalMetrics > 0 ? Math.round(score / totalMetrics) : 50
   }
 
-  /* Fetch plots with sensors */
+  /* ---------------- helper: find plots that have sensors (same as SoilHealthScreen) ---------------- */
+  async function linkedPlotsFromSim() {
+    try {
+      const res = await api.get("/api/sim/status/")
+      const data = res.data
+
+      // sim/status can be various shapes, normalize to flat array of devices
+      const arrays = []
+      if (Array.isArray(data)) arrays.push(data)
+      else if (data && typeof data === "object") {
+        arrays.push(...Object.values(data).filter(Array.isArray))
+      }
+      const devices = arrays.flat()
+
+      const plotSet = new Set()
+      const meta = new Map()
+
+      devices.forEach((d) => {
+        let pid = null
+        if (d?.plot_id) pid = String(d.plot_id)
+        else if (d?.plot_number) pid = String(d.plot_number)
+        else if (typeof d?.plot === "number") pid = String(d.plot)
+        else if (typeof d?.plot === "string") {
+          const m = d.plot.match(/\d+/)
+          pid = m ? m[0] : null
+        } else if (typeof d?.plot_name === "string") {
+          const m = d.plot_name.match(/\d+/)
+          pid = m ? m[0] : null
+        }
+        if (!pid) return
+
+        plotSet.add(pid)
+
+        const sid =
+          d.sensor_id ??
+          d.sensor ??
+          d.device_id ??
+          d.external_id ??
+          d.id ??
+          null
+
+        if (!meta.has(pid)) meta.set(pid, {})
+        if (sid != null) meta.get(pid).sensorId = String(sid)
+      })
+
+      return { plotSet, meta }
+    } catch {
+      return { plotSet: new Set(), meta: new Map() }
+    }
+  }
+
+  /* ---------------- initial load of plots / crops / sensor mapping (same as SoilHealthScreen) ---------------- */
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       try {
+        // get plots
         const plotsRes = await api.get("/api/farm/plots/")
         const plotsRaw = plotsRes.data?.results || plotsRes.data || []
-        
+
+        // get crops
         const cropsRes = await api.get("/api/farm/crops/")
         const cropsRaw = cropsRes.data?.results || cropsRes.data || []
-        
+
+        // map plot -> crop meta
         const plotToCrop = new Map()
-        cropsRaw.forEach(crop => {
+        cropsRaw.forEach((crop) => {
           const plotId = String(crop.plot_number || crop.plot_code)
           const cropName = crop.crop_type || crop.name
           const soilType = crop.soil_type
@@ -269,53 +317,80 @@ async function getMLCropRecommendation(soilData, currentSoilType) {
             plotToCrop.set(plotId, { cropName, soilType })
           }
         })
-        
-        const allPlotIds = plotsRaw.map(p => String(p.plot_id))
 
+        // collect all plot ids
+        const allPlotIds = plotsRaw.map((p) => String(p.plot_id))
+
+        // figure out which plots actually have active sensors
         const { plotSet: linkedFromSim, meta: simMeta } = await linkedPlotsFromSim()
         const meta = new Map(simMeta)
-        const stillUnknown = allPlotIds.filter(pid => !linkedFromSim.has(pid))
+
+        // fallback check per-plot via /api/sensors/data/<plotId>/ if sim/status didn't list them
+        const stillUnknown = allPlotIds.filter((pid) => !linkedFromSim.has(pid))
         if (stillUnknown.length) {
           const checks = await Promise.allSettled(
-            stillUnknown.map(pid => api.get(`/api/sensors/data/${encodeURIComponent(pid)}/`))
+            stillUnknown.map((pid) =>
+              api.get(`/api/sensors/data/${encodeURIComponent(pid)}/`)
+            )
           )
+
           checks.forEach((r, i) => {
             const pid = stillUnknown[i]
             if (r.status === "fulfilled") {
               const payload = r.value?.data || {}
+
               const hasData =
                 !!payload?.linked_sensor_id ||
                 !!payload?.sensor_id ||
                 !!payload?.latest ||
-                (Array.isArray(payload?.history) && payload.history.length > 0) ||
-                (Array.isArray(payload?.readings) && payload.readings.length > 0)
+                (Array.isArray(payload?.history) &&
+                  payload.history.length > 0) ||
+                (Array.isArray(payload?.readings) &&
+                  payload.readings.length > 0)
+
               if (hasData) linkedFromSim.add(pid)
 
-              const latestLike = payload.latest || payload.latest_reading || payload
-              const sensorId = payload.linked_sensor_id ?? payload.sensor_id ?? latestLike?.sensor_id ?? null
+              const latestLike =
+                payload.latest ||
+                payload.latest_reading ||
+                payload.latestReading ||
+                payload
+              const sensorId =
+                payload.linked_sensor_id ??
+                payload.sensor_id ??
+                latestLike?.sensor_id ??
+                latestLike?.sensor ??
+                null
+
               if (!meta.has(pid)) meta.set(pid, {})
               if (sensorId != null) meta.get(pid).sensorId = String(sensorId)
             }
           })
         }
 
+        // Build dropdown options = plots that actually have sensor data
         const options = plotsRaw
-          .filter(p => linkedFromSim.has(String(p.plot_id)))
-          .map(p => {
+          .filter((p) => linkedFromSim.has(String(p.plot_id)))
+          .map((p) => {
             const pid = String(p.plot_id)
+            const m = meta.get(pid) || {}
+            const sensorId = m.sensorId || "—"
             const cropInfo = plotToCrop.get(pid)
+            const cropVar = cropInfo?.cropName || "—"
             return {
               value: pid,
-              label: `Plot ${pid} : ${cropInfo?.cropName || "Unknown Crop"}`,
-              crop: cropInfo?.cropName || "Unknown",
+              label: `Plot ${pid} : ${cropVar}`,
+              crop: cropVar,
               soilType: cropInfo?.soilType || null,
             }
           })
 
+        setPlotsWithSensors(linkedFromSim)
         setPlotOptions(options)
 
+        // restore selection (or choose default)
         const saved = localStorage.getItem("selectedInsightsPlot")
-        if (saved && options.find(o => String(o.value) === String(saved))) {
+        if (saved && options.find((o) => String(o.value) === String(saved))) {
           setSelectedPlot(String(saved))
           const selectedOption = options.find(o => String(o.value) === String(saved))
           setPlotSoilType(selectedOption?.soilType || null)
@@ -338,73 +413,89 @@ async function getMLCropRecommendation(soilData, currentSoilType) {
     })()
   }, [])
 
+  /* ---------------- fetch latest + history (same as SoilHealthScreen) ---------------- */
+  async function fetchLatestAndHistory(plotId) {
+    // We now rely ONLY on /api/latest-reading/ and /api/reading-history/
+    // which your backend exposes and which match reading_views.py
+    const [latestRes, histRes] = await Promise.all([
+      api.get(
+        `/api/latest-reading/?plot_number=${encodeURIComponent(plotId)}`
+      ),
+      api.get(
+        `/api/reading-history/?plot_number=${encodeURIComponent(plotId)}`
+      ),
+    ])
+
+    // normalize latest
+    const latestReading = normalizeReading(latestRes.data)
+
+    // normalize history
+    const histRaw = Array.isArray(histRes.data) ? histRes.data : []
+    const histNorm = histRaw
+      .map(normalizeReading)
+      .filter(isCompleteReading)
+
+    return { latest: latestReading, history: histNorm }
+  }
+
+  /* ---------------- poll loop for the currently selected plot (same as SoilHealthScreen) ---------------- */
+  useEffect(() => {
+    // whenever selectedPlot changes, clear old data, load fresh,
+    // and start polling every 5s
+    if (!selectedPlot) {
+      setSoilData(null)
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current)
+        pollTimerRef.current = null
+      }
+      return
+    }
+
+    let isAlive = true
+    setIsLoading(true)
+
+    async function loadOnce() {
+      try {
+        const { latest, history } = await fetchLatestAndHistory(selectedPlot)
+        if (!isAlive) return
+        setSoilData(latest)
+        // We don't need history for insights, but we could store it if needed
+      } catch (err) {
+        console.error("Error fetching insights data:", err)
+        if (!isAlive) return
+        setSoilData(null)
+      } finally {
+        if (isAlive) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    // first immediate load
+    loadOnce()
+
+    // start polling after first load
+    // NOTE: you can tune interval (5000ms here = 5s)
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+    }
+    pollTimerRef.current = setInterval(loadOnce, 5000)
+
+    return () => {
+      isAlive = false
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current)
+        pollTimerRef.current = null
+      }
+    }
+  }, [selectedPlot])
+
   useEffect(() => {
     if (selectedPlot && plotOptions.length > 0) {
       const selectedOption = plotOptions.find(opt => opt.value === selectedPlot)
       setPlotSoilType(selectedOption?.soilType || null)
     }
   }, [selectedPlot, plotOptions])
-
-  // tolerant parser for /api/sim/status/
-  async function linkedPlotsFromSim() {
-    try {
-      const res = await api.get("/api/sim/status/")
-      const data = res.data
-      const arrays = []
-      if (Array.isArray(data)) arrays.push(data)
-      else if (data && typeof data === "object")
-        arrays.push(...Object.values(data).filter(Array.isArray))
-      const devices = arrays.flat()
-
-      const plotSet = new Set()
-      const meta = new Map()
-      devices.forEach((d) => {
-        let pid = null
-        if (d?.plot_id) pid = String(d.plot_id)
-        else if (d?.plot_number) pid = String(d.plot_number)
-        else if (typeof d?.plot === "number") pid = String(d.plot)
-        else if (typeof d?.plot === "string") {
-          const m = d.plot.match(/\d+/)
-          pid = m ? m[0] : null
-        }
-        if (!pid) return
-        plotSet.add(pid)
-        const sid = d.sensor_id ?? d.sensor ?? d.device_id ?? d.id ?? null
-        if (!meta.has(pid)) meta.set(pid, {})
-        if (sid != null) meta.get(pid).sensorId = String(sid)
-      })
-      return { plotSet, meta }
-    } catch {
-      return { plotSet: new Set(), meta: new Map() }
-    }
-  }
-
-  /* Fetch soil data */
-  useEffect(() => {
-    if (!selectedPlot) {
-      setSoilData(null)
-      return
-    }
-    ;(async () => {
-      setIsLoading(true)
-      try {
-        try {
-          const res = await api.get(`/api/sensors/data/${encodeURIComponent(selectedPlot)}/`)
-          const payload = res.data
-          const latest = payload.latest || payload.latest_reading || payload[0] || payload
-          setSoilData(normalizeReading(latest))
-        } catch {
-          const latestRes = await api.get(`/api/latest-reading/?plot_number=${encodeURIComponent(selectedPlot)}`)
-          setSoilData(normalizeReading(latestRes.data))
-        }
-      } catch (err) {
-        console.error("Error fetching insights data:", err)
-        setSoilData(null)
-      } finally {
-        setIsLoading(false)
-      }
-    })()
-  }, [selectedPlot])
 
   /* Close dropdown when clicking outside */
   useEffect(() => {
@@ -418,22 +509,50 @@ async function getMLCropRecommendation(soilData, currentSoilType) {
     return () => window.removeEventListener("mousedown", handleClick)
   }, [dropdownOpen])
 
-  /* Helpers */
+  /* ---------------- helpers (same as SoilHealthScreen) ---------------- */
   function normalizeReading(item = {}) {
+    if (!item) return null
+    const ts =
+      item.timestamp ||
+      item.ts ||
+      item.created_at ||
+      item.time ||
+      null
+
     return {
-      pH_level: safeNum(item.pH_level ?? item.ph),
-      N: safeNum(item.N ?? item.n),
-      P: safeNum(item.P ?? item.p),
-      K: safeNum(item.K ?? item.k),
-      Temperature: safeNum(item.Temperature ?? item.temperature),
-      Humidity: safeNum(item.Humidity ?? item.humidity),
-      Rainfall: safeNum(item.Rainfall ?? item.rainfall),
+      timestamp: ts,
+      pH_level: safeNum(item.pH_level ?? item.ph_level ?? item.ph ?? null),
+      N: safeNum(item.N ?? item.n ?? null),
+      P: safeNum(item.P ?? item.p ?? null),
+      K: safeNum(item.K ?? item.k ?? null),
+      moisture_level: safeNum(
+        item.moisture_level ?? item.moisture ?? null
+      ),
+      plot_id: item.plot_id ?? item.plot_number ?? item.plot ?? null,
+      sensor_id: item.sensor_id ?? item.sensor ?? null,
+      Temperature: safeNum(item.Temperature ?? item.temperature ?? null),
+      Humidity: safeNum(item.Humidity ?? item.humidity ?? null),
+      Rainfall: safeNum(item.Rainfall ?? item.rainfall ?? null),
     }
   }
 
+  function isCompleteReading(r) {
+    return (
+      r &&
+      r.timestamp &&
+      r.pH_level != null &&
+      r.N != null &&
+      r.P != null &&
+      r.K != null
+    )
+  }
+
   function safeNum(v) {
-    if (v == null || v === "") return null
-    const n = Number(v)
+    if (v === null || v === undefined || v === "") return null
+    const n =
+      typeof v === "string"
+        ? Number(v.replace(/,/g, "."))
+        : Number(v)
     return Number.isFinite(n) ? n : null
   }
 

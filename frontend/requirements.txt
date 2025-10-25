@@ -1,6 +1,7 @@
 asgiref==3.9.1
 certifi==2025.8.3
 channels==4.1.0
+channels-redis==4.2.0
 charset-normalizer==3.4.3
 Django==5.2.4
 django-cors-headers==4.7.0

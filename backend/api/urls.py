@@ -17,10 +17,12 @@ urlpatterns = [
     # Auth / Profile
     # -------------------------
     path("register/", auth_views.register, name="register"),
-    path("login/", auth_views.login, name="login"),
-    path("logout/", auth_views.logout, name="logout"),
-    path("profile/", auth_views.get_profile, name="get_profile"),
-    path("favorites/", auth_views.get_favorites, name="get_favorites"),
+path("login/", auth_views.login, name="login"),
+path("logout/", auth_views.logout, name="logout"),
+path("profile/", auth_views.get_profile, name="get_profile"),
+path("favorites/", auth_views.get_favorites, name="get_favorites"),
+path("favorites/add/", auth_views.add_favorite, name="add_favorite"),
+path("favorites/remove/", auth_views.remove_favorite, name="remove_favorite"),
 
     # -------------------------
     # Farm
@@ -62,7 +64,7 @@ urlpatterns = [
     # -------------------------
     # Soil Health
     # -------------------------
-    path("latest-reading/", reading_views.latest_reading, name="latest_reading"),
+       path("latest-reading/", reading_views.latest_reading, name="latest_reading"),
     path("reading-history/", reading_views.reading_history, name="reading_history"),
 
     # -------------------------

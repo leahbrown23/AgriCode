@@ -16,7 +16,18 @@ import { useEffect, useRef, useState } from "react"
 import api from "../api/api"
 import LoadingSpinner from "./LoadingSpinner"
 import SoilHealthGraphs from "./SoilHealthGraphs"
-import { getOptimalRanges, calculateSoilScore, getScoreClassification } from "../utils/soilHealthCalculator"
+import {
+  getOptimalRanges,
+  calculateSoilScore,
+  getScoreClassification,
+} from "../utils/soilHealthCalculator"
+
+/**
+ * 100% polling version:
+ * - NO WebSocket
+ * - We call /api/latest-reading/?plot_number=<id> and /api/reading-history/?plot_number=<id>
+ * - We poll every few seconds
+ */
 
 export default function SoilHealthScreen({
   onBackClick,
@@ -32,7 +43,9 @@ export default function SoilHealthScreen({
 
   // plots / selection
   const [plotOptions, setPlotOptions] = useState([])
-  const [selectedPlot, setSelectedPlot] = useState(() => localStorage.getItem("selectedSoilPlot") || "")
+  const [selectedPlot, setSelectedPlot] = useState(
+    () => localStorage.getItem("selectedSoilPlot") || ""
+  )
   const [plotsWithSensors, setPlotsWithSensors] = useState(new Set())
 
   // ui
@@ -41,110 +54,21 @@ export default function SoilHealthScreen({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
-  /* ---------------- plots + linked sensors ---------------- */
-  useEffect(() => {
-    (async () => {
-      try {
-        const plotsRes = await api.get("/api/farm/plots/")
-        const plotsRaw = plotsRes.data?.results || plotsRes.data || []
+  // polling timer ref
+  const pollTimerRef = useRef(null)
 
-        const cropsRes = await api.get("/api/farm/crops/")
-        const cropsRaw = cropsRes.data?.results || cropsRes.data || []
-
-        const plotToCrop = new Map()
-        cropsRaw.forEach(crop => {
-          const plotId = String(crop.plot_number || crop.plot_code)
-          const cropName = crop.crop_type || crop.name
-          const soilType = crop.soil_type
-          if (plotId && cropName) {
-            plotToCrop.set(plotId, { cropName, soilType })
-          }
-        })
-
-        const allPlotIds = plotsRaw.map(p => String(p.plot_id))
-        const { plotSet: linkedFromSim, meta: simMeta } = await linkedPlotsFromSim()
-        const meta = new Map(simMeta)
-
-        const stillUnknown = allPlotIds.filter(pid => !linkedFromSim.has(pid))
-        if (stillUnknown.length) {
-          const checks = await Promise.allSettled(
-            stillUnknown.map(pid => api.get(`/api/sensors/data/${encodeURIComponent(pid)}/`))
-          )
-          checks.forEach((r, i) => {
-            const pid = stillUnknown[i]
-            if (r.status === "fulfilled") {
-              const payload = r.value?.data || {}
-              const hasData =
-                !!payload?.linked_sensor_id ||
-                !!payload?.sensor_id ||
-                !!payload?.latest ||
-                (Array.isArray(payload?.history) && payload.history.length > 0) ||
-                (Array.isArray(payload?.readings) && payload.readings.length > 0)
-
-              if (hasData) linkedFromSim.add(pid)
-
-              const latestLike =
-                payload.latest || payload.latest_reading || payload.latestReading || payload
-              const sensorId =
-                payload.linked_sensor_id ??
-                payload.sensor_id ??
-                latestLike?.sensor_id ??
-                latestLike?.sensor ??
-                null
-
-              if (!meta.has(pid)) meta.set(pid, {})
-              if (sensorId != null) meta.get(pid).sensorId = String(sensorId)
-            }
-          })
-        }
-
-        const options = plotsRaw
-          .filter(p => linkedFromSim.has(String(p.plot_id)))
-          .map(p => {
-            const pid = String(p.plot_id)
-            const m = meta.get(pid) || {}
-            const sensorId = m.sensorId || "—"
-            const cropInfo = plotToCrop.get(pid)
-            const cropVar = cropInfo?.cropName || "—"
-            return {
-              value: pid,
-              label: `${sensorId} : ${pid} : ${cropVar}`,
-              crop: cropVar,
-              soilType: cropInfo?.soilType || null,
-            }
-          })
-
-        setPlotsWithSensors(linkedFromSim)
-        setPlotOptions(options)
-
-        const saved = localStorage.getItem("selectedSoilPlot")
-        if (saved && options.find(o => String(o.value) === String(saved))) {
-          setSelectedPlot(String(saved))
-        } else if (options.length) {
-          const def = String(options[0].value)
-          setSelectedPlot(def)
-          localStorage.setItem("selectedSoilPlot", def)
-        } else {
-          setSelectedPlot("")
-          localStorage.removeItem("selectedSoilPlot")
-        }
-      } catch (err) {
-        console.error("Failed to fetch plots/linked sensors:", err)
-        setPlotOptions([])
-        setSelectedPlot("")
-      }
-    })()
-  }, [])
-
+  /* ---------------- helper: find plots that have sensors ---------------- */
   async function linkedPlotsFromSim() {
     try {
       const res = await api.get("/api/sim/status/")
       const data = res.data
 
+      // sim/status can be various shapes, normalize to flat array of devices
       const arrays = []
       if (Array.isArray(data)) arrays.push(data)
-      else if (data && typeof data === "object")
+      else if (data && typeof data === "object") {
         arrays.push(...Object.values(data).filter(Array.isArray))
+      }
       const devices = arrays.flat()
 
       const plotSet = new Set()
@@ -165,8 +89,15 @@ export default function SoilHealthScreen({
         if (!pid) return
 
         plotSet.add(pid)
+
         const sid =
-          d.sensor_id ?? d.sensor ?? d.device_id ?? d.external_id ?? d.id ?? null
+          d.sensor_id ??
+          d.sensor ??
+          d.device_id ??
+          d.external_id ??
+          d.id ??
+          null
+
         if (!meta.has(pid)) meta.set(pid, {})
         if (sid != null) meta.get(pid).sensorId = String(sid)
       })
@@ -177,118 +108,240 @@ export default function SoilHealthScreen({
     }
   }
 
-  /* ---------------- data fetchers ---------------- */
-  const fetchLatestAndHistory = async (plotId) => {
-    try {
-      const res = await api.get(`/api/sensors/data/${encodeURIComponent(plotId)}/`)
-      const payload = res.data
+  /* ---------------- initial load of plots / crops / sensor mapping ---------------- */
+  useEffect(() => {
+    ;(async () => {
+      try {
+        // get plots
+        const plotsRes = await api.get("/api/farm/plots/")
+        const plotsRaw = plotsRes.data?.results || plotsRes.data || []
 
-      const latest =
-        payload.latest ||
-        payload.latest_reading ||
-        payload.latestReading ||
-        (Array.isArray(payload) ? payload[0] : payload)
+        // get crops
+        const cropsRes = await api.get("/api/farm/crops/")
+        const cropsRaw = cropsRes.data?.results || cropsRes.data || []
 
-      const history =
-        payload.history ||
-        payload.readings ||
-        payload.data ||
-        (Array.isArray(payload) ? payload : [])
+        // map plot -> crop meta
+        const plotToCrop = new Map()
+        cropsRaw.forEach((crop) => {
+          const plotId = String(crop.plot_number || crop.plot_code)
+          const cropName = crop.crop_type || crop.name
+          const soilType = crop.soil_type
+          if (plotId && cropName) {
+            plotToCrop.set(plotId, { cropName, soilType })
+          }
+        })
 
-      return {
-        latest: normalizeReading(latest),
-        history: (history || []).map(normalizeReading).filter(isCompleteReading),
+        // collect all plot ids
+        const allPlotIds = plotsRaw.map((p) => String(p.plot_id))
+
+        // figure out which plots actually have active sensors
+        const { plotSet: linkedFromSim, meta: simMeta } = await linkedPlotsFromSim()
+        const meta = new Map(simMeta)
+
+        // fallback check per-plot via /api/sensors/data/<plotId>/ if sim/status didn't list them
+        const stillUnknown = allPlotIds.filter((pid) => !linkedFromSim.has(pid))
+        if (stillUnknown.length) {
+          const checks = await Promise.allSettled(
+            stillUnknown.map((pid) =>
+              api.get(`/api/sensors/data/${encodeURIComponent(pid)}/`)
+            )
+          )
+
+          checks.forEach((r, i) => {
+            const pid = stillUnknown[i]
+            if (r.status === "fulfilled") {
+              const payload = r.value?.data || {}
+
+              const hasData =
+                !!payload?.linked_sensor_id ||
+                !!payload?.sensor_id ||
+                !!payload?.latest ||
+                (Array.isArray(payload?.history) &&
+                  payload.history.length > 0) ||
+                (Array.isArray(payload?.readings) &&
+                  payload.readings.length > 0)
+
+              if (hasData) linkedFromSim.add(pid)
+
+              const latestLike =
+                payload.latest ||
+                payload.latest_reading ||
+                payload.latestReading ||
+                payload
+              const sensorId =
+                payload.linked_sensor_id ??
+                payload.sensor_id ??
+                latestLike?.sensor_id ??
+                latestLike?.sensor ??
+                null
+
+              if (!meta.has(pid)) meta.set(pid, {})
+              if (sensorId != null) meta.get(pid).sensorId = String(sensorId)
+            }
+          })
+        }
+
+        // Build dropdown options = plots that actually have sensor data
+        const options = plotsRaw
+          .filter((p) => linkedFromSim.has(String(p.plot_id)))
+          .map((p) => {
+            const pid = String(p.plot_id)
+            const m = meta.get(pid) || {}
+            const sensorId = m.sensorId || "—"
+            const cropInfo = plotToCrop.get(pid)
+            const cropVar = cropInfo?.cropName || "—"
+            return {
+              value: pid,
+              label: `${sensorId} : ${pid} : ${cropVar}`,
+              crop: cropVar,
+              soilType: cropInfo?.soilType || null,
+            }
+          })
+
+        setPlotsWithSensors(linkedFromSim)
+        setPlotOptions(options)
+
+        // restore selection (or choose default)
+        const saved = localStorage.getItem("selectedSoilPlot")
+        if (saved && options.find((o) => String(o.value) === String(saved))) {
+          setSelectedPlot(String(saved))
+        } else if (options.length) {
+          const def = String(options[0].value)
+          setSelectedPlot(def)
+          localStorage.setItem("selectedSoilPlot", def)
+        } else {
+          setSelectedPlot("")
+          localStorage.removeItem("selectedSoilPlot")
+        }
+      } catch (err) {
+        console.error("Failed to fetch plots/linked sensors:", err)
+        setPlotOptions([])
+        setSelectedPlot("")
       }
-    } catch {
-      const [latestRes, histRes] = await Promise.all([
-        api.get(`/api/latest-reading/?plot_number=${encodeURIComponent(plotId)}`),
-        api.get(`/api/reading-history/?plot_number=${encodeURIComponent(plotId)}`),
-      ])
-      const latest = normalizeReading(latestRes.data)
-      const history = (histRes.data || [])
-        .map(normalizeReading)
-        .filter(isCompleteReading)
+    })()
+  }, [])
 
-      return { latest, history }
-    }
+  /* ---------------- fetch latest + history (one-shot helper) ---------------- */
+  async function fetchLatestAndHistory(plotId) {
+    // We now rely ONLY on /api/latest-reading/ and /api/reading-history/
+    // which your backend exposes and which match reading_views.py
+    const [latestRes, histRes] = await Promise.all([
+      api.get(
+        `/api/latest-reading/?plot_number=${encodeURIComponent(plotId)}`
+      ),
+      api.get(
+        `/api/reading-history/?plot_number=${encodeURIComponent(plotId)}`
+      ),
+    ])
+
+    // normalize latest
+    const latestReading = normalizeReading(latestRes.data)
+
+    // normalize history
+    const histRaw = Array.isArray(histRes.data) ? histRes.data : []
+    const histNorm = histRaw
+      .map(normalizeReading)
+      .filter(isCompleteReading)
+
+    return { latest: latestReading, history: histNorm }
   }
 
+  /* ---------------- poll loop for the currently selected plot ---------------- */
   useEffect(() => {
+    // whenever selectedPlot changes, clear old data, load fresh,
+    // and start polling every 5s
     if (!selectedPlot) {
       setSoilData(null)
       setHistoryData([])
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current)
+        pollTimerRef.current = null
+      }
       return
     }
-    ;(async () => {
-      setIsLoadingPlotData(true)
+
+    let isAlive = true
+    setIsLoadingPlotData(true)
+
+    async function loadOnce() {
       try {
         const { latest, history } = await fetchLatestAndHistory(selectedPlot)
+        if (!isAlive) return
         setSoilData(latest)
         setHistoryData(history)
       } catch (err) {
         console.error("Error fetching soil data:", err)
+        if (!isAlive) return
         setSoilData(null)
         setHistoryData([])
       } finally {
-        setIsLoadingPlotData(false)
-      }
-    })()
-  }, [selectedPlot])
-
-  /* ---------------- live WS updates ---------------- */
-  useEffect(() => {
-    if (!selectedPlot) return
-    const base = process.env.NEXT_PUBLIC_WS_BASE || "ws://agricode-wsa2.onrender.com"
-    const ws = new WebSocket(`${base}/ws/soil/${encodeURIComponent(selectedPlot)}/`)
-
-    ws.onmessage = (e) => {
-      try {
-        const m = JSON.parse(e.data)
-        if (String(m.plot_id ?? m.plot ?? "") !== String(selectedPlot)) return
-
-        const reading = normalizeReading(m)
-        setSoilData(reading)
-        setHistoryData((prev = []) => {
-          const next = prev.slice()
-          next.push(reading)
-          return next.slice(-500)
-        })
-      } catch (err) {
-        console.warn("WS parse error", err)
+        if (isAlive) {
+          setIsLoadingPlotData(false)
+        }
       }
     }
 
-    return () => ws.close()
+    // first immediate load
+    loadOnce()
+
+    // start polling after first load
+    // NOTE: you can tune interval (5000ms here = 5s)
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+    }
+    pollTimerRef.current = setInterval(loadOnce, 5000)
+
+    return () => {
+      isAlive = false
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current)
+        pollTimerRef.current = null
+      }
+    }
   }, [selectedPlot])
 
-  /* ---------------- dropdown UX ---------------- */
+  /* ---------------- dropdown auto-close on outside click ---------------- */
   useEffect(() => {
     if (!dropdownOpen) return
     function handleClick(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false)
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target)
+      ) {
+        setDropdownOpen(false)
+      }
     }
     window.addEventListener("mousedown", handleClick)
     return () => window.removeEventListener("mousedown", handleClick)
   }, [dropdownOpen])
 
-  // ✅ Get soil health score using shared calculation
-  const selectedPlotInfo = plotOptions.find(o => String(o.value) === String(selectedPlot))
+  /* ---------------- scoring ---------------- */
+  const selectedPlotInfo = plotOptions.find(
+    (o) => String(o.value) === String(selectedPlot)
+  )
+
   const optimalRanges = getOptimalRanges(selectedPlotInfo)
-  const { score, classification } = soilData 
+
+  const { score, classification } = soilData
     ? calculateSoilScore(soilData, optimalRanges, selectedPlot)
     : { score: 0, classification: "Unknown" }
 
-  const selectedLabel = plotOptions.find(o => String(o.value) === String(selectedPlot))?.label
+  const selectedLabel = selectedPlotInfo?.label
 
   /* ---------------- render ---------------- */
   return (
     <div className="flex flex-col h-full pb-12">
       {/* Header */}
       <div className="p-4 bg-white flex items-center shadow-sm">
-        <button onClick={onBackClick} className="mr-2 p-1 hover:bg-gray-100 rounded-full transition-colors">
+        <button
+          onClick={onBackClick}
+          className="mr-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+        >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-lg font-semibold flex-1 text-center">Soil Health</h1>
+        <h1 className="text-lg font-semibold flex-1 text-center">
+          Soil Health
+        </h1>
       </div>
 
       <div className="flex-1 overflow-y-auto bg-[#d1e6b2] p-4 space-y-4">
@@ -308,14 +361,21 @@ export default function SoilHealthScreen({
             <div className="p-2 bg-green-100 rounded-lg mr-3 flex items-center justify-center">
               <Leaf className="w-5 h-5 text-green-600" />
             </div>
-            <label className="text-sm font-semibold text-gray-700">Select Plot</label>
+            <label className="text-sm font-semibold text-gray-700">
+              Select Plot
+            </label>
           </div>
 
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
-              className={`w-full flex items-center justify-between border-2 ${dropdownOpen ? "border-green-400" : "border-green-300"} rounded-2xl px-4 py-2 text-base font-medium text-gray-800 bg-white shadow-sm focus:ring-2 focus:ring-green-400 transition-all outline-none`}
-              onClick={(e) => { e.stopPropagation(); setDropdownOpen(o => !o) }}
+              className={`w-full flex items-center justify-between border-2 ${
+                dropdownOpen ? "border-green-400" : "border-green-300"
+              } rounded-2xl px-4 py-2 text-base font-medium text-gray-800 bg-white shadow-sm focus:ring-2 focus:ring-green-400 transition-all outline-none`}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDropdownOpen((o) => !o)
+              }}
               disabled={plotOptions.length === 0}
               aria-haspopup="listbox"
               aria-expanded={dropdownOpen}
@@ -332,7 +392,11 @@ export default function SoilHealthScreen({
                       key={opt.value}
                       type="button"
                       className={`w-full text-left px-4 py-2 text-base rounded-2xl transition-all
-                        ${String(selectedPlot) === String(opt.value) ? "bg-green-100 text-green-700 font-bold" : "hover:bg-green-50 text-gray-800"}`}
+                        ${
+                          String(selectedPlot) === String(opt.value)
+                            ? "bg-green-100 text-green-700 font-bold"
+                            : "hover:bg-green-50 text-gray-800"
+                        }`}
                       onClick={(e) => {
                         e.stopPropagation()
                         const val = String(opt.value)
@@ -345,7 +409,9 @@ export default function SoilHealthScreen({
                     </button>
                   ))
                 ) : (
-                  <div className="px-4 py-2 text-gray-400 text-base">No plots with sensors yet</div>
+                  <div className="px-4 py-2 text-gray-400 text-base">
+                    No plots with sensors yet
+                  </div>
                 )}
               </div>
             )}
@@ -355,7 +421,8 @@ export default function SoilHealthScreen({
             <div className="mt-3 flex items-start p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800">
               <AlertTriangle className="w-4 h-4 mt-0.5 mr-2" />
               <span className="text-xs">
-                No sensor connected to this plot yet. Connect a sensor to start receiving live data.
+                No sensor connected to this plot yet. Connect a sensor to
+                start receiving data.
               </span>
             </div>
           )}
@@ -371,16 +438,22 @@ export default function SoilHealthScreen({
         {/* Body */}
         {isLoadingPlotData ? (
           <div className="bg-white rounded-xl shadow-lg p-5">
-            <div className="flex justify-center py-7"><LoadingSpinner /></div>
+            <div className="flex justify-center py-7">
+              <LoadingSpinner />
+            </div>
           </div>
         ) : soilData ? (
           <>
             {/* Last updated */}
             <div className="text-right">
               <div className="inline-flex items-center bg-white px-3 py-2 rounded-lg shadow-sm">
-                <span className="text-xs text-gray-500 mr-2">Last updated:</span>
+                <span className="text-xs text-gray-500 mr-2">
+                  Last updated:
+                </span>
                 <span className="text-xs font-medium text-gray-700">
-                  {soilData.timestamp ? new Date(soilData.timestamp).toLocaleString() : "—"}
+                  {soilData.timestamp
+                    ? new Date(soilData.timestamp).toLocaleString()
+                    : "—"}
                 </span>
               </div>
             </div>
@@ -389,21 +462,35 @@ export default function SoilHealthScreen({
             <div className="bg-white rounded-xl shadow-lg p-5">
               <div className="text-center mb-6">
                 <div className="flex items-center justify-center mb-2">
-                  <span className="text-sm font-medium text-gray-600 mr-1">SOIL HEALTH SCORE</span>
-                  <button onClick={() => setShowExplanation(true)} className="text-gray-400 hover:text-gray-600">
+                  <span className="text-sm font-medium text-gray-600 mr-1">
+                    SOIL HEALTH SCORE
+                  </span>
+                  <button
+                    onClick={() => setShowExplanation(true)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
                     <Info size={14} />
                   </button>
                 </div>
+
                 {showExplanation && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
                     <div className="bg-white rounded-xl shadow-lg max-w-sm p-5 text-sm text-gray-800">
-                      <h2 className="text-lg font-bold mb-3">How Soil Score is Calculated</h2>
+                      <h2 className="text-lg font-bold mb-3">
+                        How Soil Score is Calculated
+                      </h2>
                       <p className="mb-2">
-                        The Soil Health Score is calculated dynamically using crop-specific optimal ranges and weighted metrics (N, P, K, pH). 
-                        Each crop has its own targets, and being closer to those ranges gives a higher score.
+                        The Soil Health Score is calculated dynamically
+                        using crop-specific optimal ranges and weighted
+                        metrics (N, P, K, pH). Each crop has its own
+                        targets, and being closer to those ranges gives
+                        a higher score.
                       </p>
                       <div className="text-right mt-6">
-                        <button onClick={() => setShowExplanation(false)} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                        <button
+                          onClick={() => setShowExplanation(false)}
+                          className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition"
+                        >
                           Close
                         </button>
                       </div>
@@ -412,29 +499,68 @@ export default function SoilHealthScreen({
                 )}
 
                 <div className="relative">
-                  <div className="text-6xl font-bold mb-2" style={{ color: getScoreColor(score) }}>{score}</div>
+                  <div
+                    className="text-6xl font-bold mb-2"
+                    style={{ color: getScoreColor(score) }}
+                  >
+                    {score}
+                  </div>
                   <div className="text-sm font-semibold text-gray-600">
-                    Classification: <span style={{ color: getScoreColor(score) }}>{classification}</span>
+                    Classification:{" "}
+                    <span style={{ color: getScoreColor(score) }}>
+                      {classification}
+                    </span>
                   </div>
                   <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto mt-2 overflow-hidden">
-                    <div style={{ width: `${Math.min(score, 100)}%`, background: getScoreColor(score), height: "100%", borderRadius: 8, transition: "width 0.5s" }} />
+                    <div
+                      style={{
+                        width: `${Math.min(score, 100)}%`,
+                        background: getScoreColor(score),
+                        height: "100%",
+                        borderRadius: 8,
+                        transition: "width 0.5s",
+                      }}
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Metric cards */}
               <div className="grid grid-cols-2 gap-3">
-                <MetricCard color="yellow" label="pH Level" value={fmt(soilData.pH_level)} unit="pH" />
-                <MetricCard color="green" label="Nitrogen" value={fmt(soilData.N)} unit="ppm" Icon={Leaf} />
-                <MetricCard color="purple" label="Phosphorus" value={fmt(soilData.P)} unit="ppm" Icon={Zap} />
-                <MetricCard color="orange" label="Potassium" value={fmt(soilData.K)} unit="ppm" Icon={Activity} />
+                <MetricCard
+                  color="yellow"
+                  label="pH Level"
+                  value={fmt(soilData.pH_level)}
+                  unit="pH"
+                />
+                <MetricCard
+                  color="green"
+                  label="Nitrogen"
+                  value={fmt(soilData.N)}
+                  unit="ppm"
+                  Icon={Leaf}
+                />
+                <MetricCard
+                  color="purple"
+                  label="Phosphorus"
+                  value={fmt(soilData.P)}
+                  unit="ppm"
+                  Icon={Zap}
+                />
+                <MetricCard
+                  color="orange"
+                  label="Potassium"
+                  value={fmt(soilData.K)}
+                  unit="ppm"
+                  Icon={Activity}
+                />
               </div>
             </div>
 
-            {/* Trends */}
+            {/* Trends graph */}
             <SoilHealthGraphs data={historyData} />
 
-            {/* Status */}
+            {/* Status block */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-4">
               <div className="text-center text-white font-semibold">
                 ✅ No urgent issues detected
@@ -452,20 +578,31 @@ export default function SoilHealthScreen({
                   </span>
                   <Info size={14} className="text-gray-300" />
                 </div>
-                <div className="text-6xl font-bold text-gray-300 mb-2">--</div>
+                <div className="text-6xl font-bold text-gray-300 mb-2">
+                  --
+                </div>
                 <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {["pH Level","Nitrogen","Phosphorus","Potassium"].map((x) => (
-                  <div key={x} className="bg-gray-50 rounded-lg p-4 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="w-4 h-4 bg-gray-400 rounded-full mr-1" />
-                      <span className="text-xs font-medium text-gray-400">{x}</span>
+                {["pH Level", "Nitrogen", "Phosphorus", "Potassium"].map(
+                  (x) => (
+                    <div
+                      key={x}
+                      className="bg-gray-50 rounded-lg p-4 text-center"
+                    >
+                      <div className="flex items-center justify-center mb-2">
+                        <div className="w-4 h-4 bg-gray-400 rounded-full mr-1" />
+                        <span className="text-xs font-medium text-gray-400">
+                          {x}
+                        </span>
+                      </div>
+                      <div className="text-lg font-bold text-gray-400">
+                        No data
+                      </div>
                     </div>
-                    <div className="text-lg font-bold text-gray-400">No data</div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             </div>
 
@@ -506,9 +643,15 @@ export default function SoilHealthScreen({
 }
 
 /* ---------------- helpers ---------------- */
+
 function normalizeReading(item = {}) {
   if (!item) return null
-  const ts = item.timestamp || item.ts || item.created_at || item.time || null
+  const ts =
+    item.timestamp ||
+    item.ts ||
+    item.created_at ||
+    item.time ||
+    null
 
   return {
     timestamp: ts,
@@ -516,14 +659,23 @@ function normalizeReading(item = {}) {
     N: safeNum(item.N ?? item.n ?? null),
     P: safeNum(item.P ?? item.p ?? null),
     K: safeNum(item.K ?? item.k ?? null),
-    moisture_level: safeNum(item.moisture_level ?? item.moisture ?? null),
+    moisture_level: safeNum(
+      item.moisture_level ?? item.moisture ?? null
+    ),
     plot_id: item.plot_id ?? item.plot_number ?? item.plot ?? null,
     sensor_id: item.sensor_id ?? item.sensor ?? null,
   }
 }
 
 function isCompleteReading(r) {
-  return r && r.timestamp && r.pH_level != null && r.N != null && r.P != null && r.K != null
+  return (
+    r &&
+    r.timestamp &&
+    r.pH_level != null &&
+    r.N != null &&
+    r.P != null &&
+    r.K != null
+  )
 }
 
 function fmt(v) {
@@ -533,38 +685,92 @@ function fmt(v) {
 
 function safeNum(v) {
   if (v === null || v === undefined || v === "") return null
-  const n = typeof v === "string" ? Number(v.replace(/,/g, ".")) : Number(v)
+  const n =
+    typeof v === "string"
+      ? Number(v.replace(/,/g, "."))
+      : Number(v)
   return Number.isFinite(n) ? n : null
 }
 
 function getScoreColor(s) {
-  if (s >= 85) return "rgb(67,160,71)"   // Green
-  if (s >= 70) return "rgb(33,150,243)"  // Blue
-  if (s >= 55) return "rgb(251,192,45)"  // Yellow
-  if (s >= 40) return "rgb(255,152,0)"   // Orange
-  return "rgb(229,57,53)"                // Red
+  if (s >= 85) return "rgb(67,160,71)" // Green
+  if (s >= 70) return "rgb(33,150,243)" // Blue
+  if (s >= 55) return "rgb(251,192,45)" // Yellow
+  if (s >= 40) return "rgb(255,152,0)" // Orange
+  return "rgb(229,57,53)" // Red
 }
 
 function MetricCard({ color, label, value, unit, Icon, full }) {
-  const colors = {
-    yellow: ["bg-yellow-50","text-yellow-600","text-yellow-700","text-yellow-500"],
-    blue:   ["bg-blue-50","text-blue-600","text-blue-700","text-blue-500"],
-    green:  ["bg-green-50","text-green-600","text-green-700","text-green-500"],
-    purple: ["bg-purple-50","text-purple-600","text-purple-700","text-purple-500"],
-    orange: ["bg-orange-50","text-orange-600","text-orange-700","text-orange-500"],
-    gray:   ["bg-gray-50","text-gray-400","text-gray-600","text-gray-400"],
-  }[color] || ["bg-gray-50","text-gray-400","text-gray-600","text-gray-400"]
+  const colors =
+    {
+      yellow: [
+        "bg-yellow-50",
+        "text-yellow-600",
+        "text-yellow-700",
+        "text-yellow-500",
+      ],
+      blue: [
+        "bg-blue-50",
+        "text-blue-600",
+        "text-blue-700",
+        "text-blue-500",
+      ],
+      green: [
+        "bg-green-50",
+        "text-green-600",
+        "text-green-700",
+        "text-green-500",
+      ],
+      purple: [
+        "bg-purple-50",
+        "text-purple-600",
+        "text-purple-700",
+        "text-purple-500",
+      ],
+      orange: [
+        "bg-orange-50",
+        "text-orange-600",
+        "text-orange-700",
+        "text-orange-500",
+      ],
+      gray: [
+        "bg-gray-50",
+        "text-gray-400",
+        "text-gray-600",
+        "text-gray-400",
+      ],
+    }[color] || [
+      "bg-gray-50",
+      "text-gray-400",
+      "text-gray-600",
+      "text-gray-400",
+    ]
 
   return (
-    <div className={`${colors[0]} rounded-lg p-4 text-center ${full ? "col-span-2" : ""}`}>
+    <div
+      className={`${colors[0]} rounded-lg p-4 text-center ${
+        full ? "col-span-2" : ""
+      }`}
+    >
       <div className="flex items-center justify-center mb-2">
-        {Icon
-          ? <Icon className={`w-4 h-4 ${colors[1]} mr-1`} />
-          : <div className={`w-4 h-4 rounded-full mr-1 ${colors[1].replace("text","bg")}`} />}
-        <span className={`text-xs font-medium ${colors[1]}`}>{label}</span>
+        {Icon ? (
+          <Icon className={`w-4 h-4 ${colors[1]} mr-1`} />
+        ) : (
+          <div
+            className={`w-4 h-4 rounded-full mr-1 ${colors[1].replace(
+              "text",
+              "bg"
+            )}`}
+          />
+        )}
+        <span className={`text-xs font-medium ${colors[1]}`}>
+          {label}
+        </span>
       </div>
       <div className={`text-lg font-bold ${colors[2]}`}>{value}</div>
-      {unit && <div className={`text-xs ${colors[3]}`}>{unit}</div>}
+      {unit && (
+        <div className={`text-xs ${colors[3]}`}>{unit}</div>
+      )}
     </div>
   )
 }

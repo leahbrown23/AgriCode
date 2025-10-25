@@ -124,6 +124,43 @@ def get_profile(request):
 @permission_classes([IsAuthenticated])
 def get_favorites(request):
     try:
-        return Response([])  # placeholder
+        # You'll need to create a Favorite model or use your existing table
+        # For now, returning empty array as placeholder
+        return Response([])  # TODO: Implement actual database query
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_favorite(request):
+    try:
+        thread_id = request.data.get('thread_id')
+        if not thread_id:
+            return Response({'error': 'thread_id is required'}, status=400)
+        
+        # TODO: Check if favorite already exists
+        # TODO: Save to database
+        # For now, just return success with a mock ID
+        return Response({
+            'message': 'Added to favorites',
+            'thread_id': thread_id,
+            'id': 1  # Mock ID
+        }, status=201)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def remove_favorite(request):
+    try:
+        thread_id = request.data.get('thread_id')
+        if not thread_id:
+            return Response({'error': 'thread_id is required'}, status=400)
+        
+        # TODO: Remove from database
+        return Response({
+            'message': 'Removed from favorites',
+            'thread_id': thread_id
+        }, status=200)
     except Exception as e:
         return Response({'error': str(e)}, status=500)

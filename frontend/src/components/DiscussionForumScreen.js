@@ -21,10 +21,9 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
   const [user, setUser] = useState(null)
   const [favoriteRecords, setFavoriteRecords] = useState({})
 
-const [showErrorModal, setShowErrorModal] = useState(false)
-const [showSuccessModal, setShowSuccessModal] = useState(false)
-const [alertMessage, setAlertMessage] = useState("")
-
+  const [showErrorModal, setShowErrorModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [alertMessage, setAlertMessage] = useState("")
 
   const filterOptions = [
     { id: "all", label: "All Threads" },
@@ -41,13 +40,14 @@ const [alertMessage, setAlertMessage] = useState("")
         const profileRes = await api.get("/api/profile/")
         setUser(profileRes.data)
 
-        const favRes = await api.get("/api/favorites/")
-        const favs = favRes.data
-        setFavoriteThreadIds(favs.map((fav) => fav.thread_id))
+        // Load favorites from localStorage (since backend is placeholder)
+        const savedFavorites = JSON.parse(localStorage.getItem(`userFavorites_${profileRes.data.id}`) || '[]')
+        setFavoriteThreadIds(savedFavorites)
 
+        // Create mock favorite records for state management
         const favMap = {}
-        favs.forEach((fav) => {
-          favMap[fav.thread_id] = fav.id
+        savedFavorites.forEach((threadId, index) => {
+          favMap[threadId] = index + 1 // Mock ID
         })
         setFavoriteRecords(favMap)
       } catch (err) {
@@ -120,14 +120,16 @@ const [alertMessage, setAlertMessage] = useState("")
 
     if (favoriteThreadIds.includes(threadId)) {
       // Remove favorite
-      const favoriteId = favoriteRecords[threadId]
-      if (!favoriteId) return
-
       try {
-        await api.delete(`/api/favorites/${favoriteId}/`)
+        // Call backend (even though it's placeholder)
+        await api.post("/api/favorites/remove/", { thread_id: threadId })
+
+        // Update localStorage
+        const updatedFavorites = favoriteThreadIds.filter((id) => id !== threadId)
+        localStorage.setItem(`userFavorites_${user.id}`, JSON.stringify(updatedFavorites))
 
         // Update local state immediately
-        setFavoriteThreadIds((ids) => ids.filter((id) => id !== threadId))
+        setFavoriteThreadIds(updatedFavorites)
         setFavoriteRecords((recs) => {
           const newRecs = { ...recs }
           delete newRecs[threadId]
@@ -144,18 +146,29 @@ const [alertMessage, setAlertMessage] = useState("")
             return updated
           })
         }
+
+        console.log("Removed from favorites")
       } catch (err) {
         console.error("Failed to remove favorite:", err)
       }
     } else {
       // Add favorite
       try {
+        // Call backend (even though it's placeholder)
         const res = await api.post("/api/favorites/add/", { thread_id: threadId })
-        const newFavorite = res.data
+
+        // Update localStorage
+        const updatedFavorites = [...favoriteThreadIds, threadId]
+        localStorage.setItem(`userFavorites_${user.id}`, JSON.stringify(updatedFavorites))
 
         // Update local state immediately
-        setFavoriteThreadIds((ids) => [...ids, threadId])
-        setFavoriteRecords((recs) => ({ ...recs, [threadId]: newFavorite.id }))
+        setFavoriteThreadIds(updatedFavorites)
+        setFavoriteRecords((recs) => ({ 
+          ...recs, 
+          [threadId]: res.data.id || Date.now() // Use response ID or timestamp as fallback
+        }))
+
+        console.log("Added to favorites")
       } catch (err) {
         console.error("Failed to add favorite:", err)
       }
@@ -180,6 +193,7 @@ const [alertMessage, setAlertMessage] = useState("")
         message: newThreadMessage,
       })
       setAlertMessage("Thread created successfully!")
+      setShowSuccessModal(true)
       setShowCreateForm(false)
       setNewThreadTitle("")
       setNewThreadMessage("")
@@ -382,16 +396,16 @@ const [alertMessage, setAlertMessage] = useState("")
         </div>
       </div>
       <ErrorAlertModal
-      open={showErrorModal}
-      message={alertMessage}
-      onClose={() => setShowErrorModal(false)}
-    />
+        open={showErrorModal}
+        message={alertMessage}
+        onClose={() => setShowErrorModal(false)}
+      />
 
-    <SuccessAlertModal
-      open={showSuccessModal}
-      message={alertMessage}
-      onClose={() => setShowSuccessModal(false)}
-    />
+      <SuccessAlertModal
+        open={showSuccessModal}
+        message={alertMessage}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </div>
   )
 }
