@@ -44,6 +44,9 @@ def farm_crops(request):
         status_val   = data.get('status', 'planting')
         expected_end_date_raw = data.get('expected_end_date')
 
+        pest_month = data.get('pest_month') or data.get('pestMonth') or 0.0
+        fert_month = data.get('fert_month') or data.get('fertMonth') or 0.0
+
         # Validate required fields
         if not crop_type or not crop_variety or not soil_type or not (plot_id_raw or plot_code or plot_key):
             return Response(
@@ -93,7 +96,9 @@ def farm_crops(request):
             'crop_variety': crop_variety,
             'soil_type': soil_type,
             'status': status_val,
-            'expected_end_date': expected_end_date
+            'expected_end_date': expected_end_date,
+            'pest_month': pest_month,
+            'fert_month': fert_month,
         }
 
         # Serialize and save

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
+from datetime import datetime
 from forum.models import Thread
 
 from .models import (
@@ -13,6 +14,7 @@ from .models import (
     Harvest,
     SensorDevice,
     SensorData,
+    Chemical
 )
 
 # -------------------------
@@ -76,8 +78,9 @@ class FarmSerializer(serializers.ModelSerializer):
 
 
 class CropSerializer(serializers.ModelSerializer):
-    # allow client to send expected end date when creating crop
     expected_end_date = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    pest_month = serializers.FloatField(write_only=True, required=False, allow_null=True)
+    fert_month = serializers.FloatField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Crop
@@ -91,30 +94,56 @@ class CropSerializer(serializers.ModelSerializer):
             "crop_variety",
             "soil_type",
             "status",
-            "expected_end_date",  # not stored on Crop, used to seed Harvest
+            "expected_end_date",  
+            "pest_month",
+            "fert_month",
         ]
         read_only_fields = ["user"]
 
     def create(self, validated_data):
         expected_end_date = validated_data.pop("expected_end_date", None)
+        pest_month = validated_data.pop("pest_month", None)
+        fert_month = validated_data.pop("fert_month", None)
+
+        # make sure datetime is timezone-aware
+        if isinstance(expected_end_date, datetime) and expected_end_date.tzinfo is None:
+            expected_end_date = timezone.make_aware(expected_end_date)
+
         crop = super().create(validated_data)
 
-        # Create a Harvest row (only if we have user & plot)
         user = getattr(crop, "user", None)
         plot = getattr(crop, "plot", None)
         if user and plot:
-            Harvest.objects.create(
-                crop=crop,
+            # Create the Harvest record
+            harvest = Harvest.objects.create(
+                crop_id=crop.id,
                 user=user,
                 plot=plot,
                 crop_type=crop.crop_type or "Unknown",
                 crop_variety=crop.crop_variety or "Unknown",
-                start_date=timezone.now(),          # 👈 timezone-safe start date
+                start_date=timezone.now(),
                 expected_end_date=expected_end_date,
                 end_date=None,
                 yield_amount=0,
                 comments="",
             )
+
+            # Create the Chemicals record (if pest/fert values provided)
+            if pest_month is not None and fert_month is not None and expected_end_date:
+                harvest_days = (expected_end_date.date() - harvest.start_date.date()).days
+                pest_days = pest_month / 30
+                fert_days = fert_month / 30
+                Chemical.objects.create(
+                    harvest=harvest,
+                    pest_month=pest_month,
+                    fert_month=fert_month,
+                    harvest_days=harvest_days,
+                    pest_days=pest_days,
+                    fert_days=fert_days,
+                    pest_total=pest_days * harvest_days,
+                    fert_total=fert_days * harvest_days,
+                )
+
         return crop
 
 

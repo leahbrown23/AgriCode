@@ -104,6 +104,33 @@ class Harvest(models.Model):
 
     def __str__(self):
         return f"Harvest {self.crop_type} on {self.plot} ({self.end_date})"
+    
+class Chemical(models.Model):
+    harvest = models.OneToOneField(
+        'Harvest', on_delete=models.CASCADE, related_name='chemical'
+    )
+    pest_month = models.FloatField(default=0.0)
+    fert_month = models.FloatField(default=0.0)
+    harvest_days = models.IntegerField(default=0)
+    pest_days = models.FloatField(default=0.0)
+    fert_days = models.FloatField(default=0.0)
+    pest_total = models.FloatField(default=0.0)
+    fert_total = models.FloatField(default=0.0)
+
+    def save(self, *args, **kwargs):
+        if self.harvest and self.harvest.start_date and self.harvest.expected_end_date:
+            delta = self.harvest.expected_end_date - self.harvest.start_date
+            self.harvest_days = delta.days
+
+        self.pest_days = self.pest_month / 30
+        self.fert_days = self.fert_month / 30
+        self.pest_total = self.pest_days * self.harvest_days
+        self.fert_total = self.fert_days * self.harvest_days
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Chemicals for Harvest ID {self.harvest.id}"
 
 
 class SoilSensorReading(models.Model):
