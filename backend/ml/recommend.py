@@ -110,7 +110,7 @@ if __name__ == "__main__":
         "Rainfall": 950,
         "Humidity": 60,
         "Soil_Type": "Loamy",
-        "Current_Crop": "maize",
+        "Current_Crop": "Maize",
         "Fertilizer": 100,
         "Pesticide": 10
     }

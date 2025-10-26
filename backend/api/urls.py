@@ -11,7 +11,7 @@ from .views import (
     sim_views,
     reading_views,
     misc_views,
-    recommendations_views,  # ← NEW IMPORT
+    recommendations_views,
 )
 
 urlpatterns = [
@@ -67,13 +67,14 @@ urlpatterns = [
     path("sensors/data/by-code/<int:plot_code>/", sim_views.get_sensor_data_by_code, name="get_sensor_data_by_code"),
 
     # -------------------------
-    # Soil Health
+    # Soil Health / Readings
     # -------------------------
+    # latest_reading is now ENRICHED and returns soil + env + crop + chemical
     path("latest-reading/", reading_views.latest_reading, name="latest_reading"),
     path("reading-history/", reading_views.reading_history, name="reading_history"),
 
     # -------------------------
-    # Recommendations (NEW)
+    # Recommendations (AI)
     # -------------------------
     path(
         "recommendations/plots/",

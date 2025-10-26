@@ -137,11 +137,24 @@ class SoilSensorReading(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     plot_number = models.CharField(max_length=100)
     sensor_id = models.IntegerField()
+
+    # Soil chemistry / nutrients
     pH_level = models.FloatField()
     N = models.FloatField()
     P = models.FloatField()
     K = models.FloatField()
+
+    # Soil conditions
     moisture_level = models.FloatField()
+
+    # 🔥 NEW: we are now explicitly telling Django
+    # about the weather/env columns that ALREADY
+    # exist in your Supabase table.
+    Temperature = models.FloatField(null=True, blank=True)
+    Humidity = models.FloatField(null=True, blank=True)
+    Rainfall = models.FloatField(null=True, blank=True)
+
+    # Timestamp of the reading
     timestamp = models.DateTimeField()
 
     def __str__(self):

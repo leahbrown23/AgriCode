@@ -21,7 +21,6 @@ export default function RecommendationsScreen({
   const [loading, setLoading] = useState(true)
   const [plotRecs, setPlotRecs] = useState([])
 
-  // Fetch recommendations from backend
   useEffect(() => {
     async function fetchRecs() {
       try {
@@ -37,21 +36,46 @@ export default function RecommendationsScreen({
     fetchRecs()
   }, [])
 
-  // Build Immediate Attention list from plots with warnings
   const urgentWarnings = useMemo(() => {
     const out = []
     plotRecs.forEach((plot) => {
       if (plot.severity === "high" && Array.isArray(plot.warnings)) {
         plot.warnings.forEach((msg) => {
-          out.push({
-            plot: plot.plot_name,
-            msg,
-          })
+          out.push({ plot: plot.plot_name, msg })
         })
       }
     })
     return out
   }, [plotRecs])
+
+  // Format all numbers to 2 decimal points
+  function fmt2(v) {
+    if (v === null || v === undefined || v === "—") return "—"
+    const n = Number(v)
+    return Number.isFinite(n) ? n.toFixed(2) : "—"
+  }
+
+  // Process and emphasize Optimal Fert/Pest lines
+  function processActionText(raw) {
+    if (!raw || typeof raw !== "string") return { text: raw, isOptimal: false }
+
+    // Remove predicted yield info
+    let cleaned = raw.replace(/[, ]*predicted yield=.*$/i, "").trim()
+
+    const isOptimal =
+      /optimal\s+fertilizer/i.test(cleaned) ||
+      /optimal\s+pesticide/i.test(cleaned)
+
+    // Split Optimal values into two lines if both are mentioned
+    if (isOptimal && /fertilizer=.*pesticide=.*/i.test(cleaned)) {
+      const match = cleaned.match(/Optimal.*Fertilizer=([\d.]+).*Pesticide=([\d.]+)/i)
+      if (match) {
+        cleaned = `Optimal Fertilizer: ${match[1]}\nOptimal Pesticide: ${match[2]}`
+      }
+    }
+
+    return { text: cleaned, isOptimal }
+  }
 
   if (loading) return <LoadingSpinner />
 
@@ -70,13 +94,12 @@ export default function RecommendationsScreen({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 bg-[#d1e6b2] space-y-6">
-        {/* Immediate Attention box */}
+        {/* Immediate Attention */}
         {urgentWarnings.length > 0 && (
           <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg shadow">
             <h2 className="flex items-center text-red-600 font-bold mb-2">
               <AlertTriangle className="h-5 w-5 mr-2" /> Immediate Attention
             </h2>
-
             <ul className="text-gray-600 text-sm space-y-2">
               {urgentWarnings.map((item, idx) => (
                 <li key={idx}>
@@ -87,14 +110,13 @@ export default function RecommendationsScreen({
                 </li>
               ))}
             </ul>
-
             <p className="text-[11px] text-red-400 mt-3">
               These issues may affect yield or crop health if not handled soon.
             </p>
           </div>
         )}
 
-        {/* Per-plot recommendations */}
+        {/* Per-Plot Recommendations */}
         <div className="bg-white p-4 rounded-lg shadow">
           <h2 className="font-semibold text-green-700 mb-2 flex items-center">
             <Leaf className="h-5 w-5 mr-2 text-green-600" /> Per Plot / Crop
@@ -111,13 +133,12 @@ export default function RecommendationsScreen({
               key={plot.plot_id}
               className="border rounded p-3 mb-3 bg-gray-50 last:mb-0"
             >
-              {/* Plot header row */}
+              {/* Header */}
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-gray-800 text-sm font-semibold">
                     {plot.plot_name} – {plot.crop_name}
                   </p>
-
                   {plot.days_in_cycle != null && (
                     <p className="text-gray-400 text-[11px]">
                       Day {plot.days_in_cycle} of growth
@@ -125,7 +146,6 @@ export default function RecommendationsScreen({
                   )}
                 </div>
 
-                {/* Severity pill */}
                 {plot.severity === "high" && (
                   <span className="text-[10px] font-semibold text-red-600 bg-red-100 border border-red-300 rounded px-2 py-[2px]">
                     urgent
@@ -144,53 +164,35 @@ export default function RecommendationsScreen({
                 )}
               </div>
 
-              {/* Sensor metrics */}
+              {/* Latest Conditions */}
               {plot.metrics && (
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-3 text-[11px] text-gray-600">
+                <div className="mt-2 text-[11px] text-gray-600 grid grid-cols-3 gap-x-4">
                   <div>
-                    <span className="font-semibold text-gray-700">N:</span>{" "}
-                    {plot.metrics.nitrogen}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-700">P:</span>{" "}
-                    {plot.metrics.phosphorus}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-700">K:</span>{" "}
-                    {plot.metrics.potassium}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-700">pH:</span>{" "}
-                    {plot.metrics.ph}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-700">
-                      Moisture:
-                    </span>{" "}
-                    {plot.metrics.moisture}%
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-700">
-                      Temp:
-                    </span>{" "}
-                    {plot.metrics.temperature ?? "—"}°C
+                    <span className="font-semibold text-gray-700">Temp:</span>{" "}
+                    {plot.metrics.temperature != null
+                      ? `${fmt2(plot.metrics.temperature)}°C`
+                      : "—"}
                   </div>
                   <div>
                     <span className="font-semibold text-gray-700">
                       Humidity:
                     </span>{" "}
-                    {plot.metrics.humidity ?? "—"}%
+                    {plot.metrics.humidity != null
+                      ? `${fmt2(plot.metrics.humidity)}%`
+                      : "—"}
                   </div>
                   <div>
                     <span className="font-semibold text-gray-700">
                       Rainfall:
                     </span>{" "}
-                    {plot.metrics.rainfall ?? "—"}mm
+                    {plot.metrics.rainfall != null
+                      ? `${fmt2(plot.metrics.rainfall)}mm`
+                      : "—"}
                   </div>
                 </div>
               )}
 
-              {/* Chemicals usage (fert / pest) */}
+              {/* Fertilizer & Pesticide totals */}
               {plot.chemicals && (
                 <div className="mt-3 text-[11px] text-gray-600 bg-white border border-gray-200 rounded p-2">
                   <div className="flex justify-between">
@@ -199,8 +201,7 @@ export default function RecommendationsScreen({
                         Fertilizer
                       </div>
                       <div className="text-gray-500">
-                        Total:{" "}
-                        {plot.chemicals.fert_total ?? "not tracked yet"}
+                        Total: {fmt2(plot.chemicals.fert_total)}
                       </div>
                     </div>
                     <div>
@@ -208,19 +209,18 @@ export default function RecommendationsScreen({
                         Pesticide
                       </div>
                       <div className="text-gray-500">
-                        Total:{" "}
-                        {plot.chemicals.pest_total ?? "not tracked yet"}
+                        Total: {fmt2(plot.chemicals.pest_total)}
                       </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Warnings / Actions */}
+              {/* Warnings / Suggested Actions */}
               <div className="mt-3 text-[12px]">
                 {Array.isArray(plot.warnings) && plot.warnings.length > 0 && (
                   <div className="mb-2">
-                    <div className="text-red-600 font-semibold flex items-center text-[12px]">
+                    <div className="text-red-600 font-semibold flex items-center">
                       <AlertTriangle className="h-4 w-4 mr-1" />
                       Warnings
                     </div>
@@ -232,16 +232,32 @@ export default function RecommendationsScreen({
                   </div>
                 )}
 
-                {Array.isArray(plot.actions) && plot.actions.length > 0 && (
-                  <div>
-                    <div className="text-green-700 font-semibold flex items-center text-[12px]">
+                {(plot.soil_actions?.length > 0 ||
+                  plot.chemical_actions?.length > 0) && (
+                  <div className="mb-2">
+                    <div className="text-green-700 font-semibold flex items-center">
                       <CheckCircle className="h-4 w-4 mr-1" />
                       Suggested Actions
                     </div>
-                    <ul className="text-gray-700 text-[12px] list-disc ml-5">
-                      {plot.actions.map((a, idx) => (
-                        <li key={idx}>{a}</li>
-                      ))}
+                    <ul className="text-gray-700 text-[12px] list-disc ml-5 space-y-1">
+                      {[...(plot.soil_actions || []), ...(plot.chemical_actions || [])].map(
+                        (a, idx) => {
+                          const { text, isOptimal } = processActionText(a)
+                          const lines = text.split("\n")
+                          return (
+                            <li
+                              key={idx}
+                              className={
+                                isOptimal
+                                  ? "font-semibold text-green-700 bg-green-50 border border-green-300 rounded px-2 py-1 whitespace-pre-line"
+                                  : ""
+                              }
+                            >
+                              {lines.join("\n")}
+                            </li>
+                          )
+                        }
+                      )}
                     </ul>
                   </div>
                 )}
@@ -249,26 +265,10 @@ export default function RecommendationsScreen({
             </div>
           ))}
         </div>
-
-        {/* Farm-wide block */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="font-semibold text-green-700 mb-2">Farm-wide</h2>
-          <p className="text-gray-600 text-sm">
-            🌱 AI will generate recommendations that apply to the whole farm.
-          </p>
-        </div>
-
-        {/* Completed block */}
-        <div className="bg-gray-50 p-4 rounded-lg shadow">
-          <h2 className="font-semibold text-gray-600 mb-2">Completed</h2>
-          <p className="text-gray-500 text-sm">
-            ✅ Completed recommendations will appear here after being ticked off.
-          </p>
-        </div>
       </div>
 
-      {/* Bottom Navigation */}
-      {["dashboard","soilHealth","insights","recommendations","userProfile"].includes(
+      {/* Bottom Nav */}
+      {["dashboard", "soilHealth", "insights", "recommendations", "userProfile"].includes(
         currentScreen
       ) && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">

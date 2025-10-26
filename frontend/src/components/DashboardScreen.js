@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { MessageSquare, TrendingUp, AlertTriangle } from "lucide-react"
 import LoadingSpinner from "./LoadingSpinner"
 import api from "../api/api"
@@ -27,10 +27,13 @@ export default function DashboardScreen({
     farmStats: { totalPlots: 0, totalSensors: 0, activeSensors: 0, activeCrops: 0 },
   })
 
-  // enriched plot cards
+  // plot cards
   const [plotsWithSoilData, setPlotsWithSoilData] = useState([])
 
-  /** ---------------- helpers (shared with SoilHealthScreen style) ---------------- */
+  // full plotRecs-style data from /api/recommendations/plots/
+  const [plotRecs, setPlotRecs] = useState([])
+
+  /** ---------------- helpers ---------------- */
 
   function safeNum(v) {
     if (v === null || v === undefined || v === "") return null
@@ -38,7 +41,6 @@ export default function DashboardScreen({
     return Number.isFinite(n) ? n : null
   }
 
-  // same normalization style as SoilHealthScreen.normalizeReading
   function normalizeReading(item = {}) {
     if (!item) return null
     const ts =
@@ -64,7 +66,6 @@ export default function DashboardScreen({
     return d ? new Date(d) : null
   }
 
-  // colour scale for soil score (borrowed from SoilHealthScreen.getScoreColor)
   function getScoreColor(s) {
     if (s >= 85) return "rgb(67,160,71)" // Green
     if (s >= 70) return "rgb(33,150,243)" // Blue
@@ -73,7 +74,6 @@ export default function DashboardScreen({
     return "rgb(229,57,53)" // Red
   }
 
-  // harvest progress helpers
   function calculateHarvestProgress(harvestOrFallback) {
     const start = parseDate(harvestOrFallback?.start_date)
     const expected = parseDate(harvestOrFallback?.expected_end_date)
@@ -129,88 +129,33 @@ export default function DashboardScreen({
     }
   }
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-700 border-red-200"
-      case "medium":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200"
-      case "low":
-        return "bg-green-100 text-green-700 border-green-200"
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200"
-    }
-  }
-
-  // sim/status parser for plots that have sensors
-  async function linkedPlotsFromSim() {
-    try {
-      const res = await api.get("/api/sim/status/")
-      const data = res.data
-
-      const arrays = []
-      if (Array.isArray(data)) {
-        arrays.push(data)
-      } else if (data && typeof data === "object") {
-        arrays.push(...Object.values(data).filter(Array.isArray))
+  // ----- NEW: derive urgentWarnings like RecommendationsScreen -----
+  const urgentWarnings = useMemo(() => {
+    const out = []
+    plotRecs.forEach((plot) => {
+      if (plot.severity === "high" && Array.isArray(plot.warnings)) {
+        plot.warnings.forEach((msg) => {
+          out.push({
+            plot: plot.plot_name,
+            msg,
+          })
+        })
       }
+    })
+    return out
+  }, [plotRecs])
 
-      const devices = arrays.flat()
-
-      const plotSet = new Set()
-      const meta = new Map()
-
-      devices.forEach((d) => {
-        let pid = null
-        if (d?.plot != null) pid = String(d.plot)
-        else if (d?.plot_number != null) pid = String(d.plot_number)
-        else if (d?.plot_id != null) pid = String(d.plot_id)
-        else if (typeof d?.plot === "string") {
-          const m = d.plot.match(/\d+/)
-          pid = m ? m[0] : null
-        }
-        if (!pid) return
-
-        plotSet.add(pid)
-
-        const sid =
-          d.sensor_id ??
-          d.sensor ??
-          d.device_id ??
-          d.external_id ??
-          d.id ??
-          null
-
-        if (!meta.has(pid)) meta.set(pid, {})
-        if (sid != null) meta.get(pid).sensorId = String(sid)
-      })
-
-      return { plotSet, meta }
-    } catch {
-      return { plotSet: new Set(), meta: new Map() }
-    }
-  }
-
-  // same data source SoilHealthScreen uses for the "latest" reading
-  async function fetchLatestReadingForPlot(plotCode) {
-    const latestRes = await api.get(
-      `/api/latest-reading/?plot_number=${encodeURIComponent(plotCode)}`
-    )
-    const latestNorm = normalizeReading(latestRes.data)
-    return latestNorm
-  }
-
-  /** ---------------- main data load ---------------- */
+  // fetch dashboard data + plot recs
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        // 1) plots
+        // fetch plots
         const plotsRes = await api.get("/api/farm/plots/")
         const plots = Array.isArray(plotsRes.data?.results)
           ? plotsRes.data.results
           : plotsRes.data || []
 
-        // 2) crops (crop name + soil type)
+        // fetch crops
         const cropsRes = await api.get("/api/farm/crops/")
         const crops = Array.isArray(cropsRes.data?.results)
           ? cropsRes.data.results
@@ -228,7 +173,7 @@ export default function DashboardScreen({
           })
         })
 
-        // 3) harvests, get most recent still-open harvest per plot
+        // fetch harvests
         const harvestsRes = await api.get("/api/farm/harvests/")
         const harvests = Array.isArray(harvestsRes.data?.results)
           ? harvestsRes.data.results
@@ -251,14 +196,49 @@ export default function DashboardScreen({
           }
         }
 
-        // 4) sensors list for "Sensor Status" section
+        // fetch sensors
         const sensorsRes = await api.get("/api/sim/status/")
         const sensors = sensorsRes.data || []
 
-        // 5) figure which plots actually have sensor data
+        // figure out which plots have sensor data
         const allPlotCodes = plots.map((p) => String(p.plot_id))
-        const { plotSet: linkedFromSim } = await linkedPlotsFromSim()
 
+        // helper to know which plots have sensors/live data
+        async function linkedPlotsFromSim() {
+          try {
+            const res = await api.get("/api/sim/status/")
+            const data = res.data
+
+            const arrays = []
+            if (Array.isArray(data)) {
+              arrays.push(data)
+            } else if (data && typeof data === "object") {
+              arrays.push(...Object.values(data).filter(Array.isArray))
+            }
+
+            const devices = arrays.flat()
+
+            const plotSet = new Set()
+            devices.forEach((d) => {
+              let pid = null
+              if (d?.plot != null) pid = String(d.plot)
+              else if (d?.plot_number != null) pid = String(d.plot_number)
+              else if (d?.plot_id != null) pid = String(d.plot_id)
+              else if (typeof d?.plot === "string") {
+                const m = d.plot.match(/\d+/)
+                pid = m ? m[0] : null
+              }
+              if (!pid) return
+              plotSet.add(pid)
+            })
+
+            return plotSet
+          } catch {
+            return new Set()
+          }
+        }
+
+        const linkedFromSim = await linkedPlotsFromSim()
         const stillUnknown = allPlotCodes.filter(
           (code) => !linkedFromSim.has(code)
         )
@@ -287,16 +267,12 @@ export default function DashboardScreen({
           })
         }
 
-        // 6) build the array we'll actually render
+        // build enrichedPlots for cards
         const enrichedPlots = []
         for (const plot of plots) {
           const plotCode = String(plot.plot_id)
-          if (!linkedFromSim.has(plotCode)) {
-            // skip plots that don't have live data
-            continue
-          }
+          if (!linkedFromSim.has(plotCode)) continue
 
-          // crop + soilType
           const cropInfo = plotToCrop.get(plotCode)
           const cropNameGuess =
             cropInfo?.cropName ||
@@ -304,23 +280,19 @@ export default function DashboardScreen({
             "Unknown"
           const soilTypeGuess = cropInfo?.soilType || null
 
-          // harvest progress info
           const harvest = latestHarvestByPlot.get(plotCode) || null
           const harvestInfo = calculateHarvestProgress(harvest)
 
-          // latest soil reading for scoring
           let latestReadingNorm = null
           try {
-            latestReadingNorm = await fetchLatestReadingForPlot(plotCode)
-          } catch (err) {
-            console.warn(
-              "Could not fetch latest reading for plot",
-              plotCode,
-              err
+            const latestRes = await api.get(
+              `/api/latest-reading/?plot_number=${encodeURIComponent(plotCode)}`
             )
+            latestReadingNorm = normalizeReading(latestRes.data)
+          } catch (err) {
+            console.warn("Could not fetch latest reading for plot", plotCode, err)
           }
 
-          // compute soil health score & classification
           let soilScore = null
           let soilClass = null
           if (
@@ -358,15 +330,11 @@ export default function DashboardScreen({
           })
         }
 
-        setPlotsWithSoilData(enrichedPlots)
+        // fetch recs for urgentWarnings box
+        const recsRes = await api.get("/api/recommendations/plots/")
+        const recsData = recsRes.data || []
 
-        // recommendations mock
-        const recommendations = [
-          { id: 1, priority: "high", title: "pH level adjustment needed", plot: "Plot 2", action: "Add lime" },
-          { id: 2, priority: "medium", title: "Irrigation optimization", plot: "Plot 3", action: "Reduce frequency" },
-          { id: 3, priority: "low", title: "Nutrient monitoring", plot: "Plot 1", action: "Check levels" },
-        ]
-
+        // compute farmStats
         const activeCrops = enrichedPlots.filter(
           (p) => p.cropName && p.cropName !== "Unknown"
         ).length
@@ -380,10 +348,12 @@ export default function DashboardScreen({
           activeCrops,
         }
 
+        setPlotsWithSoilData(enrichedPlots)
+        setPlotRecs(recsData)
         setFarmData({
           plots,
           sensors: Array.isArray(sensors) ? sensors : [],
-          recommendations,
+          recommendations: [],
           farmStats,
         })
       } catch (e) {
@@ -463,9 +433,9 @@ export default function DashboardScreen({
           >
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-800">
-                {farmData.recommendations.length}
+                {urgentWarnings.length}
               </p>
-              <p className="text-xs text-gray-500">To do's</p>
+              <p className="text-xs text-gray-500">Urgent Issues</p>
             </div>
           </div>
         </div>
@@ -575,55 +545,33 @@ export default function DashboardScreen({
           </div>
         </div>
 
-        {/* Top Issues */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">
-              Top 3 Issues to Address
+        {/* 🔴 Immediate Attention */}
+        {urgentWarnings.length > 0 && (
+          <div
+            onClick={onRecommendationsClick}
+            className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg shadow cursor-pointer"
+          >
+            <h2 className="flex items-center text-red-600 font-bold mb-2">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Immediate Attention
             </h2>
-            <button
-              onClick={onRecommendationsClick}
-              className="text-blue-600 text-sm font-medium hover:underline"
-            >
-              View all
-            </button>
-          </div>
 
-          <div className="space-y-2">
-            {farmData.recommendations.slice(0, 3).map((rec) => (
-              <div
-                key={rec.id}
-                onClick={onRecommendationsClick}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <AlertTriangle
-                    className={`h-4 w-4 ${
-                      rec.priority === "high"
-                        ? "text-red-500"
-                        : rec.priority === "medium"
-                        ? "text-yellow-500"
-                        : "text-green-500"
-                    }`}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">
-                      {rec.plot}
-                    </p>
-                    <p className="text-xs text-gray-500">{rec.title}</p>
-                  </div>
-                </div>
-                <span
-                  className={`px-2 py-1 text-xs rounded-full border ${getPriorityColor(
-                    rec.priority
-                  )}`}
-                >
-                  {rec.priority}
-                </span>
-              </div>
-            ))}
+            <ul className="text-gray-600 text-sm space-y-2">
+              {urgentWarnings.map((item, idx) => (
+                <li key={idx}>
+                  <span className="font-semibold text-red-700">
+                    {item.plot}:
+                  </span>{" "}
+                  {item.msg}
+                </li>
+              ))}
+            </ul>
+
+            <p className="text-[11px] text-red-400 mt-3">
+              These issues may affect yield or crop health if not handled soon.
+            </p>
           </div>
-        </div>
+        )}
 
         {/* Sensor Status */}
         <div className="bg-white rounded-xl shadow-sm p-4">
@@ -674,63 +622,6 @@ export default function DashboardScreen({
           </div>
         </div>
 
-        {/* Insights Snapshot */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">
-              Insights Snapshot
-            </h2>
-            <button
-              onClick={onInsightsClick}
-              className="text-blue-600 text-sm font-medium hover:underline"
-            >
-              from last 24h
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div
-              onClick={onInsightsClick}
-              className="p-3 bg-blue-50 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
-            >
-              <p className="text-sm text-gray-700">
-                <span className="font-medium">Maize (Plot 1):</span> pH
-                trending up towards optimal.
-              </p>
-            </div>
-
-            <div
-              onClick={onInsightsClick}
-              className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition-colors"
-            >
-              <p className="text-sm text-gray-700">
-                <span className="font-medium">Tomato (Plot 3):</span>{" "}
-                Moisture above target, consider reducing irrigation.
-              </p>
-            </div>
-
-            <div
-              onClick={onInsightsClick}
-              className="p-3 bg-green-50 rounded-lg border border-green-200 cursor-pointer hover:bg-green-100 transition-colors"
-            >
-              <p className="text-sm text-gray-700">
-                <span className="font-medium">Wheat (Plot 2):</span>{" "}
-                Potassium deficit flagged for correction.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onRecommendationsClick}
-            className="w-full mt-3 bg-green-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
-          >
-            Open AI Recommendations
-            <span className="ml-2 px-1.5 py-0.5 bg-green-400 rounded text-xs">
-              3 new
-            </span>
-          </button>
-        </div>
-
         {/* Quick Nav */}
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -740,9 +631,7 @@ export default function DashboardScreen({
             <MessageSquare className="h-6 w-6 text-blue-600" />
             <div className="text-left">
               <p className="font-medium text-gray-800">Discussion Forum</p>
-              <p className="text-xs text-gray-500">
-                Connect with farmers
-              </p>
+              <p className="text-xs text-gray-500">Connect with farmers</p>
             </div>
           </button>
 
