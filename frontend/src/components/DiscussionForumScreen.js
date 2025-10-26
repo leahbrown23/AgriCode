@@ -33,18 +33,19 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     { id: "favorites", label: "Favorites" },
   ]
 
-  // Step 1: Fetch user & favorites first
+  // Step 1: Fetch user & favorites from database
   useEffect(() => {
     async function fetchUserAndFavorites() {
       try {
         const profileRes = await api.get("/api/profile/")
         setUser(profileRes.data)
 
-        // Load favorites from localStorage (since backend is placeholder)
-        const savedFavorites = JSON.parse(localStorage.getItem(`userFavorites_${profileRes.data.id}`) || '[]')
+        // Load favorites from database instead of localStorage
+        const favoritesRes = await api.get("/api/favorites/")
+        const savedFavorites = favoritesRes.data || []
         setFavoriteThreadIds(savedFavorites)
 
-        // Create mock favorite records for state management
+        // Create favorite records for state management
         const favMap = {}
         savedFavorites.forEach((threadId, index) => {
           favMap[threadId] = index + 1 // Mock ID
@@ -121,14 +122,10 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     if (favoriteThreadIds.includes(threadId)) {
       // Remove favorite
       try {
-        // Call backend (even though it's placeholder)
         await api.post("/api/favorites/remove/", { thread_id: threadId })
 
-        // Update localStorage
-        const updatedFavorites = favoriteThreadIds.filter((id) => id !== threadId)
-        localStorage.setItem(`userFavorites_${user.id}`, JSON.stringify(updatedFavorites))
-
         // Update local state immediately
+        const updatedFavorites = favoriteThreadIds.filter((id) => id !== threadId)
         setFavoriteThreadIds(updatedFavorites)
         setFavoriteRecords((recs) => {
           const newRecs = { ...recs }
@@ -147,6 +144,8 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
           })
         }
 
+        // Trigger update in FarmSetupScreen
+        window.dispatchEvent(new CustomEvent('favoritesUpdated'))
         console.log("Removed from favorites")
       } catch (err) {
         console.error("Failed to remove favorite:", err)
@@ -154,20 +153,18 @@ export default function DiscussionForumScreen({ onBackClick, onThreadClick }) {
     } else {
       // Add favorite
       try {
-        // Call backend (even though it's placeholder)
         const res = await api.post("/api/favorites/add/", { thread_id: threadId })
 
-        // Update localStorage
-        const updatedFavorites = [...favoriteThreadIds, threadId]
-        localStorage.setItem(`userFavorites_${user.id}`, JSON.stringify(updatedFavorites))
-
         // Update local state immediately
+        const updatedFavorites = [...favoriteThreadIds, threadId]
         setFavoriteThreadIds(updatedFavorites)
         setFavoriteRecords((recs) => ({ 
           ...recs, 
-          [threadId]: res.data.id || Date.now() // Use response ID or timestamp as fallback
+          [threadId]: res.data.id || Date.now()
         }))
 
+        // Trigger update in FarmSetupScreen
+        window.dispatchEvent(new CustomEvent('favoritesUpdated'))
         console.log("Added to favorites")
       } catch (err) {
         console.error("Failed to add favorite:", err)

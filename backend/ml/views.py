@@ -14,7 +14,7 @@ import json
 def recommend_crop(request):
     """
     Expects JSON input with keys:
-    N, P, K, pH, Temperature, Humidity, Rainfall, Soil_Type, optional Current_Crop
+    N, P, K, pH, Temperature, Humidity, Rainfall, Fertilizer, Pesticide, Soil_Type, optional Current_Crop
     Returns:
         - Best crop recommendation with confidence score
         - Predicted yield for recommended crop

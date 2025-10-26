@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   ArrowLeft,
   Home,
@@ -11,13 +11,47 @@ import {
   CheckCircle,
 } from "lucide-react"
 import LoadingSpinner from "./LoadingSpinner"
+import api from "../api/api"
 
 export default function RecommendationsScreen({
   onBackClick,
   setCurrentScreen,
   currentScreen,
 }) {
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [plotRecs, setPlotRecs] = useState([])
+
+  // Fetch recommendations from backend
+  useEffect(() => {
+    async function fetchRecs() {
+      try {
+        const res = await api.get("/api/recommendations/plots/")
+        setPlotRecs(res.data || [])
+      } catch (err) {
+        console.error("Failed to load recommendations", err)
+        setPlotRecs([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchRecs()
+  }, [])
+
+  // Build Immediate Attention list from plots with warnings
+  const urgentWarnings = useMemo(() => {
+    const out = []
+    plotRecs.forEach((plot) => {
+      if (plot.severity === "high" && Array.isArray(plot.warnings)) {
+        plot.warnings.forEach((msg) => {
+          out.push({
+            plot: plot.plot_name,
+            msg,
+          })
+        })
+      }
+    })
+    return out
+  }, [plotRecs])
 
   if (loading) return <LoadingSpinner />
 
@@ -31,43 +65,192 @@ export default function RecommendationsScreen({
         <h1 className="text-lg font-semibold flex-1 text-center">
           Recommendations
         </h1>
+        <div className="w-5" />
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 bg-[#d1e6b2] space-y-6">
-        {/* Important Section */}
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg shadow">
-          <h2 className="flex items-center text-red-600 font-bold mb-2">
-            <AlertTriangle className="h-5 w-5 mr-2" /> Important
-          </h2>
-          <p className="text-gray-600 text-sm">
-            🔔 AI-powered urgent recommendations will appear here
-          </p>
-        </div>
+        {/* Immediate Attention box */}
+        {urgentWarnings.length > 0 && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg shadow">
+            <h2 className="flex items-center text-red-600 font-bold mb-2">
+              <AlertTriangle className="h-5 w-5 mr-2" /> Immediate Attention
+            </h2>
 
-        {/* Plot Recommendations */}
+            <ul className="text-gray-600 text-sm space-y-2">
+              {urgentWarnings.map((item, idx) => (
+                <li key={idx}>
+                  <span className="font-semibold text-red-700">
+                    {item.plot}:
+                  </span>{" "}
+                  {item.msg}
+                </li>
+              ))}
+            </ul>
+
+            <p className="text-[11px] text-red-400 mt-3">
+              These issues may affect yield or crop health if not handled soon.
+            </p>
+          </div>
+        )}
+
+        {/* Per-plot recommendations */}
         <div className="bg-white p-4 rounded-lg shadow">
           <h2 className="font-semibold text-green-700 mb-2 flex items-center">
             <Leaf className="h-5 w-5 mr-2 text-green-600" /> Per Plot / Crop
           </h2>
-          <p className="text-gray-600 text-sm mb-2">
-            📍 Recommendations grouped by plot/crop will be displayed here.
-          </p>
-          <div className="border rounded p-3 mb-2 bg-gray-50">
-            <p className="text-gray-500 text-sm">Plot A – Maize (placeholder)</p>
-            <p className="text-gray-400 text-xs">
-              Example recommendations for this plot will appear here.
+
+          {plotRecs.length === 0 && (
+            <p className="text-gray-600 text-sm mb-2">
+              📍 No plot recommendations available.
             </p>
-          </div>
-          <div className="border rounded p-3 bg-gray-50">
-            <p className="text-gray-500 text-sm">Plot B – Tomato (placeholder)</p>
-            <p className="text-gray-400 text-xs">
-              Example recommendations for this plot will appear here.
-            </p>
-          </div>
+          )}
+
+          {plotRecs.map((plot) => (
+            <div
+              key={plot.plot_id}
+              className="border rounded p-3 mb-3 bg-gray-50 last:mb-0"
+            >
+              {/* Plot header row */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-gray-800 text-sm font-semibold">
+                    {plot.plot_name} – {plot.crop_name}
+                  </p>
+
+                  {plot.days_in_cycle != null && (
+                    <p className="text-gray-400 text-[11px]">
+                      Day {plot.days_in_cycle} of growth
+                    </p>
+                  )}
+                </div>
+
+                {/* Severity pill */}
+                {plot.severity === "high" && (
+                  <span className="text-[10px] font-semibold text-red-600 bg-red-100 border border-red-300 rounded px-2 py-[2px]">
+                    urgent
+                  </span>
+                )}
+                {plot.severity === "medium" && (
+                  <span className="text-[10px] font-semibold text-yellow-700 bg-yellow-100 border border-yellow-300 rounded px-2 py-[2px]">
+                    check soon
+                  </span>
+                )}
+                {plot.severity === "low" && (
+                  <span className="text-[10px] font-semibold text-green-700 bg-green-100 border border-green-300 rounded px-2 py-[2px] flex items-center">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    stable
+                  </span>
+                )}
+              </div>
+
+              {/* Sensor metrics */}
+              {plot.metrics && (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-3 text-[11px] text-gray-600">
+                  <div>
+                    <span className="font-semibold text-gray-700">N:</span>{" "}
+                    {plot.metrics.nitrogen}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">P:</span>{" "}
+                    {plot.metrics.phosphorus}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">K:</span>{" "}
+                    {plot.metrics.potassium}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">pH:</span>{" "}
+                    {plot.metrics.ph}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Moisture:
+                    </span>{" "}
+                    {plot.metrics.moisture}%
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Temp:
+                    </span>{" "}
+                    {plot.metrics.temperature ?? "—"}°C
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Humidity:
+                    </span>{" "}
+                    {plot.metrics.humidity ?? "—"}%
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Rainfall:
+                    </span>{" "}
+                    {plot.metrics.rainfall ?? "—"}mm
+                  </div>
+                </div>
+              )}
+
+              {/* Chemicals usage (fert / pest) */}
+              {plot.chemicals && (
+                <div className="mt-3 text-[11px] text-gray-600 bg-white border border-gray-200 rounded p-2">
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="font-semibold text-gray-700">
+                        Fertilizer
+                      </div>
+                      <div className="text-gray-500">
+                        Total:{" "}
+                        {plot.chemicals.fert_total ?? "not tracked yet"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-700">
+                        Pesticide
+                      </div>
+                      <div className="text-gray-500">
+                        Total:{" "}
+                        {plot.chemicals.pest_total ?? "not tracked yet"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Warnings / Actions */}
+              <div className="mt-3 text-[12px]">
+                {Array.isArray(plot.warnings) && plot.warnings.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-red-600 font-semibold flex items-center text-[12px]">
+                      <AlertTriangle className="h-4 w-4 mr-1" />
+                      Warnings
+                    </div>
+                    <ul className="text-red-700 text-[12px] list-disc ml-5">
+                      {plot.warnings.map((w, idx) => (
+                        <li key={idx}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {Array.isArray(plot.actions) && plot.actions.length > 0 && (
+                  <div>
+                    <div className="text-green-700 font-semibold flex items-center text-[12px]">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Suggested Actions
+                    </div>
+                    <ul className="text-gray-700 text-[12px] list-disc ml-5">
+                      {plot.actions.map((a, idx) => (
+                        <li key={idx}>{a}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Farm-wide Recommendations */}
+        {/* Farm-wide block */}
         <div className="bg-white p-4 rounded-lg shadow">
           <h2 className="font-semibold text-green-700 mb-2">Farm-wide</h2>
           <p className="text-gray-600 text-sm">
@@ -75,7 +258,7 @@ export default function RecommendationsScreen({
           </p>
         </div>
 
-        {/* Completed Recommendations */}
+        {/* Completed block */}
         <div className="bg-gray-50 p-4 rounded-lg shadow">
           <h2 className="font-semibold text-gray-600 mb-2">Completed</h2>
           <p className="text-gray-500 text-sm">
@@ -85,7 +268,7 @@ export default function RecommendationsScreen({
       </div>
 
       {/* Bottom Navigation */}
-      {["dashboard", "soilHealth", "insights", "recommendations", "userProfile"].includes(
+      {["dashboard","soilHealth","insights","recommendations","userProfile"].includes(
         currentScreen
       ) && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-around items-center h-12 border-t bg-white">
