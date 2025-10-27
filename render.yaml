@@ -2,10 +2,7 @@ services:
   - type: web
     name: smart-harvest-backend
     env: python
-    pythonVersion: 3.13.1
-    autoDeploy: true
-    plan: free
-    workingDirectory: backend   # sets backend as root for build/start commands
+    workingDirectory: backend
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
