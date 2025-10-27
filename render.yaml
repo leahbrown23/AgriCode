@@ -6,7 +6,8 @@ services:
       pip install -r backend/requirements.txt
       python backend/manage.py collectstatic --noinput
       python backend/manage.py migrate
-    startCommand: gunicorn backend.wsgi:application
+    startCommand: |
+      cd backend && gunicorn backend.wsgi:application
     envVars:
       - key: DATABASE_URL
         sync: false
