@@ -8,7 +8,7 @@ services:
       pip install -r backend/requirements.txt
       python backend/manage.py collectstatic --noinput
       python backend/manage.py migrate
-    startCommand: gunicorn wsgi:application --chdir backend
+    startCommand: gunicorn backend.wsgi:application --chdir backend
     envVars:
       - key: DATABASE_URL
         sync: false
