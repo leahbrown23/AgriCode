@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ..models import CustomUser
+from ..models import CustomUser, CustomerFavoriteThread
 
 
 @api_view(['POST'])
@@ -124,11 +124,14 @@ def get_profile(request):
 @permission_classes([IsAuthenticated])
 def get_favorites(request):
     try:
-        # You'll need to create a Favorite model or use your existing table
-        # For now, returning empty array as placeholder
-        return Response([])  # TODO: Implement actual database query
+        # Get thread IDs that this user has favorited
+        favorites = CustomerFavoriteThread.objects.filter(
+            customer=request.user
+        ).values_list('thread_id', flat=True)
+        return Response(list(favorites))
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -138,16 +141,35 @@ def add_favorite(request):
         if not thread_id:
             return Response({'error': 'thread_id is required'}, status=400)
         
-        # TODO: Check if favorite already exists
-        # TODO: Save to database
-        # For now, just return success with a mock ID
-        return Response({
-            'message': 'Added to favorites',
-            'thread_id': thread_id,
-            'id': 1  # Mock ID
-        }, status=201)
+        # Import Thread model to validate thread exists
+        from forum.models import Thread
+        
+        try:
+            thread = Thread.objects.get(id=thread_id)
+        except Thread.DoesNotExist:
+            return Response({'error': 'Thread not found'}, status=404)
+        
+        # Check if favorite already exists
+        favorite, created = CustomerFavoriteThread.objects.get_or_create(
+            customer=request.user,
+            thread=thread
+        )
+        
+        if created:
+            return Response({
+                'message': 'Added to favorites',
+                'thread_id': thread_id,
+                'id': favorite.id
+            }, status=201)
+        else:
+            return Response({
+                'message': 'Already in favorites',
+                'thread_id': thread_id,
+                'id': favorite.id
+            }, status=200)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -157,10 +179,21 @@ def remove_favorite(request):
         if not thread_id:
             return Response({'error': 'thread_id is required'}, status=400)
         
-        # TODO: Remove from database
-        return Response({
-            'message': 'Removed from favorites',
-            'thread_id': thread_id
-        }, status=200)
+        # Remove from database
+        deleted_count, _ = CustomerFavoriteThread.objects.filter(
+            customer=request.user,
+            thread_id=thread_id
+        ).delete()
+        
+        if deleted_count > 0:
+            return Response({
+                'message': 'Removed from favorites',
+                'thread_id': thread_id
+            }, status=200)
+        else:
+            return Response({
+                'message': 'Favorite not found',
+                'thread_id': thread_id
+            }, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)

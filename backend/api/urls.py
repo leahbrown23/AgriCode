@@ -2,8 +2,16 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .views import (
-    auth_views, farm_views, plot_views, crop_views,
-    harvest_views, sensor_views, sim_views, reading_views, misc_views,
+    auth_views,
+    farm_views,
+    plot_views,
+    crop_views,
+    harvest_views,
+    sensor_views,
+    sim_views,
+    reading_views,
+    misc_views,
+    recommendations_views,
 )
 
 urlpatterns = [
@@ -17,12 +25,12 @@ urlpatterns = [
     # Auth / Profile
     # -------------------------
     path("register/", auth_views.register, name="register"),
-path("login/", auth_views.login, name="login"),
-path("logout/", auth_views.logout, name="logout"),
-path("profile/", auth_views.get_profile, name="get_profile"),
-path("favorites/", auth_views.get_favorites, name="get_favorites"),
-path("favorites/add/", auth_views.add_favorite, name="add_favorite"),
-path("favorites/remove/", auth_views.remove_favorite, name="remove_favorite"),
+    path("login/", auth_views.login, name="login"),
+    path("logout/", auth_views.logout, name="logout"),
+    path("profile/", auth_views.get_profile, name="get_profile"),
+    path("favorites/", auth_views.get_favorites, name="get_favorites"),
+    path("favorites/add/", auth_views.add_favorite, name="add_favorite"),
+    path("favorites/remove/", auth_views.remove_favorite, name="remove_favorite"),
 
     # -------------------------
     # Farm
@@ -40,7 +48,7 @@ path("favorites/remove/", auth_views.remove_favorite, name="remove_favorite"),
     path("farm/plots/<int:plot_id>/", plot_views.plot_detail, name="plot_detail"),
 
     # -------------------------
-    # Sensors
+    # Sensors / Devices
     # -------------------------
     path("sensors/validate/", sensor_views.validate_sensor, name="validate_sensor"),
     path("sensors/connect/", sensor_views.connect_sensor, name="connect_sensor"),
@@ -54,18 +62,25 @@ path("favorites/remove/", auth_views.remove_favorite, name="remove_favorite"),
 
     # -------------------------
     # Sensor Data
-    # Existing route (likely expects Plot.pk)
+    # -------------------------
     path("sensors/data/<int:plot_id>/", sim_views.get_sensor_data, name="get_sensor_data"),
-
-    # New route that looks up by public plot code (plot.plot_id)
-    # Implement sim_views.get_sensor_data_by_code as shown in the note below.
     path("sensors/data/by-code/<int:plot_code>/", sim_views.get_sensor_data_by_code, name="get_sensor_data_by_code"),
 
     # -------------------------
-    # Soil Health
+    # Soil Health / Readings
     # -------------------------
-       path("latest-reading/", reading_views.latest_reading, name="latest_reading"),
+    # latest_reading is now ENRICHED and returns soil + env + crop + chemical
+    path("latest-reading/", reading_views.latest_reading, name="latest_reading"),
     path("reading-history/", reading_views.reading_history, name="reading_history"),
+
+    # -------------------------
+    # Recommendations (AI)
+    # -------------------------
+    path(
+        "recommendations/plots/",
+        recommendations_views.plot_recommendations,
+        name="plot_recommendations",
+    ),
 
     # -------------------------
     # Simulation
@@ -80,8 +95,7 @@ path("favorites/remove/", auth_views.remove_favorite, name="remove_favorite"),
     path("farm/crops/<int:crop_id>/status/", crop_views.update_crop_status, name="update_crop_status"),
     path("farm/crops/<int:crop_id>/harvest/", misc_views.harvest_crop, name="harvest_crop"),
 
-    path('farm/harvests/', harvest_views.farm_harvests, name='farm_harvests'),
-    path('harvests/', harvest_views.farm_harvests, name='farm_harvests_root'),
-    path('farm/harvests/<int:crop_id>/update/', harvest_views.update_harvest, name='update_harvest'),
-    
+    path("farm/harvests/", harvest_views.farm_harvests, name="farm_harvests"),
+    path("harvests/", harvest_views.farm_harvests, name="farm_harvests_root"),
+    path("farm/harvests/<int:crop_id>/update/", harvest_views.update_harvest, name="update_harvest"),
 ]

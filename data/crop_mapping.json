@@ -1,18 +1,18 @@
 {
     "crop": {
         "forward": {
-            "maize": 0,
-            "potato": 1,
-            "rice": 2,
-            "sugarcane": 3,
-            "wheat": 4
+            "Maize": 0,
+            "Potato": 1,
+            "Rice": 2,
+            "Sugarcane": 3,
+            "Wheat": 4
         },
         "reverse": {
-            "0": "maize",
-            "1": "potato",
-            "2": "rice",
-            "3": "sugarcane",
-            "4": "wheat"
+            "0": "Maize",
+            "1": "Potato",
+            "2": "Rice",
+            "3": "Sugarcane",
+            "4": "Wheat"
         }
     },
     "soil_type": {

@@ -54,15 +54,45 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
 
   // Load favorites from localStorage (since backend is placeholder)
   useEffect(() => {
-    const fetchFavoritesFromLocalStorage = async () => {
-      if (!token || !user) return
-      setLoadingFavorites(true)
-      try {
-        // Get favorites from localStorage for this user
-        const favoriteIds = JSON.parse(localStorage.getItem(`userFavorites_${user.id}`) || '[]')
+  const fetchFavoritesFromDatabase = async () => {
+    if (!token || !user) return
+    setLoadingFavorites(true)
+    try {
+      // Get favorite thread IDs from database
+      const favoritesRes = await api.get("/api/favorites/")
+      const favoriteIds = favoritesRes.data || []
 
+      if (favoriteIds.length > 0) {
+        // Fetch thread details from Django backend
+        const threadsRes = await api.get("/forum/threads/")
+        const allThreads = threadsRes.data.results || []
+        const filtered = allThreads.filter(t => favoriteIds.includes(t.id))
+        setFavoriteThreads(filtered)
+      } else {
+        setFavoriteThreads([])
+      }
+    } catch (err) {
+      console.error("Error fetching favorite threads:", err)
+      setFavoriteThreads([])
+    } finally {
+      setLoadingFavorites(false)
+    }
+  }
+  fetchFavoritesFromDatabase()
+}, [token, user])
+
+// Replace the localStorage change listener useEffect (around lines 67-92) with:
+useEffect(() => {
+  if (!user) return
+
+  const handleFavoritesUpdate = () => {
+    // Refetch favorites when they're updated in other components
+    const refetchFavorites = async () => {
+      try {
+        const favoritesRes = await api.get("/api/favorites/")
+        const favoriteIds = favoritesRes.data || []
+        
         if (favoriteIds.length > 0) {
-          // Fetch thread details from Django backend
           const threadsRes = await api.get("/forum/threads/")
           const allThreads = threadsRes.data.results || []
           const filtered = allThreads.filter(t => favoriteIds.includes(t.id))
@@ -71,44 +101,16 @@ export default function FarmSetupScreen({ onBackClick, onAddCropsClick, onThread
           setFavoriteThreads([])
         }
       } catch (err) {
-        console.error("Error fetching favorite threads:", err)
-        setFavoriteThreads([])
-      } finally {
-        setLoadingFavorites(false)
+        console.error("Error updating favorite threads:", err)
       }
     }
-    fetchFavoritesFromLocalStorage()
-  }, [token, user])
+    refetchFavorites()
+  }
 
-  // Listen for localStorage changes (when favorites are updated in other components)
-  useEffect(() => {
-    if (!user) return
-
-    const handleStorageChange = (e) => {
-      if (e.key === `userFavorites_${user.id}`) {
-        // Refetch favorites when localStorage changes
-        const fetchUpdatedFavorites = async () => {
-          try {
-            const favoriteIds = JSON.parse(e.newValue || '[]')
-            if (favoriteIds.length > 0) {
-              const threadsRes = await api.get("/forum/threads/")
-              const allThreads = threadsRes.data.results || []
-              const filtered = allThreads.filter(t => favoriteIds.includes(t.id))
-              setFavoriteThreads(filtered)
-            } else {
-              setFavoriteThreads([])
-            }
-          } catch (err) {
-            console.error("Error updating favorite threads:", err)
-          }
-        }
-        fetchUpdatedFavorites()
-      }
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [user])
+  // Listen for custom event when favorites are updated
+  window.addEventListener('favoritesUpdated', handleFavoritesUpdate)
+  return () => window.removeEventListener('favoritesUpdated', handleFavoritesUpdate)
+}, [user])
 
   const showSuccess = (message) => {
     setSuccessMessage(message)
