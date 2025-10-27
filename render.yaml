@@ -2,13 +2,13 @@ services:
   - type: web
     name: smart-harvest-backend
     env: python
-    workingDirectory: backend
+    pythonVersion: 3.13.4
     buildCommand: |
       pip install --upgrade pip
-      pip install -r requirements.txt
-      python manage.py collectstatic --noinput
-      python manage.py migrate
-    startCommand: gunicorn wsgi:application --chdir backend
+      pip install -r backend/requirements.txt
+      python backend/manage.py collectstatic --noinput
+      python backend/manage.py migrate
+    startCommand: gunicorn backend.wsgi:application --chdir backend
     envVars:
       - key: DATABASE_URL
         sync: false
