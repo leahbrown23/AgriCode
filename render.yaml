@@ -2,19 +2,15 @@ services:
   - type: web
     name: smart-harvest-backend
     env: python
+    workingDirectory: backend   # sets backend/ as root
     buildCommand: |
-      cd backend
+      pip install --upgrade pip
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
       python manage.py migrate
-    startCommand: |
-      cd backend && gunicorn backend.wsgi:application
+    startCommand: gunicorn backend.wsgi:application
     envVars:
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
         sync: false
-      - key: DEBUG
-        value: "False"
-      - key: ALLOWED_HOSTS
-        value: "smart-harvest-backend.onrender.com,localhost,127.0.0.1"
