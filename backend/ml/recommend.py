@@ -102,17 +102,17 @@ def generate_recommendations(input_data: dict):
 # Optional local test
 if __name__ == "__main__":
     sample_input = {
-        "N": 85,
-        "P": 42,
-        "K": 210,
-        "pH": 6.1,
-        "Temperature": 27,
-        "Rainfall": 950,
-        "Humidity": 60,
-        "Soil_Type": "Loamy",
-        "Current_Crop": "maize",
-        "Fertilizer": 100,
-        "Pesticide": 10
+        "N": 12.86,
+        "P": 15.5,
+        "K": 219.41,
+        "pH": 8.06,
+        "Temperature": 25.6,
+        "Rainfall": 53.3,
+        "Humidity": 50.7,
+        "Soil_Type": "Sandy",
+        "Current_Crop": "rice",
+        "Fertilizer": 160,
+        "Pesticide": 5
     }
 
     result = generate_recommendations(sample_input)
