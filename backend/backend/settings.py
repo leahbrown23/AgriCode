@@ -19,8 +19,7 @@ SECRET_KEY = 'django-insecure-j+$(v4)$icyo51n)n@i*5dz4*ujvri!-esrsz7olmc$eponr)&
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
+    'agricode-17ed.onrender.com', 'localhost', '127.0.0.1'
 ]
 
 AUTH_USER_MODEL = "api.CustomUser"
@@ -115,7 +114,7 @@ SIMPLE_JWT = {
 # -------------------------------------------------
 # URL / WSGI
 # -------------------------------------------------
-ROOT_URLCONF = "backend.urls"
+ROOT_URLCONF = "backend.backend.urls"
 
 TEMPLATES = [
     {
